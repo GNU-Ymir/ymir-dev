@@ -8,6 +8,7 @@ uv run start      # clone gymir, bootstrap, midgard (yruntime) and gcc into repo
 uv run preview    # build gyc from them into target/, midgard included
 uv run exec main.yr -o main   # target/bin/gyc -iprefix target <args>
 ymirc main.yr -o main         # the same, from any directory
+uv run tests                  # compile and run tests/, checking their expected outputs
 ```
 
 `preview` builds whatever each repo has checked out, branch and uncommitted changes included. When
@@ -16,6 +17,29 @@ it first, so switching bootstrap branches needs no new `start`.
 
 `start` also installs `~/.local/bin/ymirc`, a symlink to the project venv's `ymirc` entry point. The
 project is installed editable, and `ymirc` follows whatever the last `uv run preview` built.
+
+## Tests
+
+```sh
+uv run tests                      # every case, in debug (-g) and release (-O2)
+uv run tests generators -m debug  # the cases whose path contains `generators`, in debug only
+uv run tests --update             # write what the failing runs produced as their expected files
+```
+
+Compiles each `tests/<suite>/<name>.yr` with the preview gyc, runs it, and checks what it did
+against the files of the same basename:
+
+| file | checks |
+|---|---|
+| `<name>.out` | the exact stdout (required) |
+| `<name>.status` | the exit status, a number or a signal name like `SIGABRT` (default `0`) |
+| `<name>.stderr` | lines the stderr must contain, in that order (the panic trace differs with `-g`) |
+| `<name>.in` | fed to stdin |
+| `<name>.flags` | extra gyc flags |
+
+A failing run leaves its binary, stdout, stderr and status in `build/tests/<suite>/<name>.<mode>.*`.
+To add a case, write the `.yr`, run `uv run tests <name> --update`, and **read the `.out` it wrote**
+before committing it. `--update` writes `.out` and `.status` only. A `.stderr` is written by hand.
 
 ## Releasing
 
@@ -60,6 +84,8 @@ are incremental.
 | `toolchain/` | the pinned gyc and gyllir, extracted from their release .debs (no root needed) |
 | `work/` | the staged sources: a symlink farm of gcc, with copies of gymir and bootstrap in it, plus midgard |
 | `build/gcc` | the GCC build dir |
+| `tests/` | the execution tests of `uv run tests` |
+| `build/tests` | the runs of the failing tests |
 | `target/` | the preview install: `bin/gyc`, `libexec/.../ymir1`, `include/ymir/<v>`, `lib/libgymidgard-*_<v>.a` |
 | `logs/` | configure, make, install, midgard build logs |
 
