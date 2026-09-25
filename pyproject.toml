@@ -10,6 +10,7 @@ start = "ymir_dev.start:main"
 preview = "ymir_dev.preview:main"
 exec = "ymir_dev.exec_:main"
 ymirc = "ymir_dev.exec_:main"
+prepare-release = "ymir_dev.release:main"
 
 [build-system]
 requires = ["uv_build>=0.8,<0.12"]
