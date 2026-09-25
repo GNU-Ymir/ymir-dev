@@ -1,0 +1,27 @@
+use std::io;
+
+class Shape {
+    pub self () {}
+    pub fn area (self)-> i32 { 0 }
+    pub fn name (self)-> [c8] { "shape" }
+}
+
+class Rect over Shape {
+    let _w : i32;
+    let _h : i32;
+    pub self (w : i32, h : i32) with _w = w, _h = h {}
+    pub over area (self)-> i32 { self._w * self._h }
+    pub over name (self)-> [c8] { "rect" }
+}
+
+class Square over Rect {
+    pub self (s : i32) with super (s, s) {}
+    pub over name (self)-> [c8] { "square" }
+}
+
+fn main () {
+    let shapes : [&Shape] = copy [copy Shape (), copy Rect (2, 3), copy Square (4)];
+    for s in shapes {
+        println (s.name (), " ", s.area ());
+    }
+}

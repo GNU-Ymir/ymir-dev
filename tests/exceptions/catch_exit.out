@@ -1,0 +1,14 @@
+exit 1
+r = 10
+exit 2
+r = 20
+caught 3
+exit 3
+r = -1
+exit 4
+r = 40
+exit 5
+r = 50
+caught 6
+exit 6
+r = -1

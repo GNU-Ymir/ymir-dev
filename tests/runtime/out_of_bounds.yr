@@ -1,0 +1,7 @@
+use std::io;
+
+fn main () {
+    let a = copy [1, 2, 3];
+    let i = a.len + 2us;
+    println (a [i]);
+}
