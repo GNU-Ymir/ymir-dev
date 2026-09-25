@@ -7,6 +7,7 @@ dependencies = []
 
 [project.scripts]
 start = "ymir_dev.start:main"
+preview = "ymir_dev.preview:main"
 exec = "ymir_dev.exec_:main"
 
 [build-system]
