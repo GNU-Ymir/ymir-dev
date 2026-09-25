@@ -78,13 +78,18 @@ def commit_date(repo: Path) -> str:
 
 def build_gyc(gcc_src: Path, repos: dict, midgard_full: str, env: dict, jobs: int) -> Path:
     build = BUILD / "gcc"
-    build.mkdir(parents=True, exist_ok=True)
-    if not (build / "Makefile").exists():
-        say("configuring gcc (first run only)")
+    # ymir1 needs the D frontend: it links $(D_TARGET_OBJS), the target's D version flags.
+    flags = [f"--prefix={TARGET}", "--enable-languages=c,d,ymir", "--disable-bootstrap",
+             "--disable-multilib", "--enable-checking=release"]
+    configured = build / ".configure-flags"
+    if not (build / "Makefile").exists() or not configured.exists() or configured.read_text() != " ".join(flags):
+        say("configuring gcc (first run, or its flags changed: full build)")
+        shutil.rmtree(build, ignore_errors=True)
+        build.mkdir(parents=True)
         # Relative on purpose: Make-lang.in joins $(ROOT_DIR)/$(srcdir).
         configure = os.path.relpath(gcc_src / "configure", build)
-        run([configure, f"--prefix={TARGET}", "--enable-languages=c,ymir", "--disable-bootstrap",
-             "--disable-multilib", "--enable-checking=release"], cwd=build, env=env, log="configure")
+        run([configure, *flags], cwd=build, env=env, log="configure")
+        configured.write_text(" ".join(flags))
 
     # gycspec.o sees the midgard version and the dates as flags only, which make does not track.
     ymir_date, midgard_date = commit_date(Path(repos["bootstrap"])), commit_date(Path(repos["midgard"]))
@@ -97,14 +102,6 @@ def build_gyc(gcc_src: Path, repos: dict, midgard_full: str, env: dict, jobs: in
         stamp.write_text(stamp_text)
 
     say(f"building gcc + ymir1 (-j{jobs}, logs/make.log)")
-    # ymir1 links $(D_TARGET_OBJS), which only a build with the D frontend enabled produces.
-    run(["make", "configure-gcc"], cwd=build, env=env, log="configure-gcc")
-    d_objs = subprocess.run(["make", "-s", "--no-print-directory", "--eval",
-                             "print-d-objs: ; @echo $(D_TARGET_OBJS)", "print-d-objs"],
-                            cwd=build / "gcc", env=env, capture_output=True, text=True).stdout.split()
-    d_objs = [o for o in d_objs if o.endswith(".o")]
-    if d_objs:
-        run(["make", f"-j{jobs}", *d_objs], cwd=build / "gcc", env=env, log="d-target-objs")
     run(["make", f"-j{jobs}", "all-gcc", "all-target-libgcc"], cwd=build, env=env, log="make")
     say("installing into target/")
     run(["make", "install-gcc", "install-target-libgcc"], cwd=build, env=env, log="install")

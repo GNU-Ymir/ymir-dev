@@ -68,7 +68,6 @@ the staged copies only:
 - `ymir1` links the midgard runtime of the std pinned by bootstrap's `gyllir.toml`
   (`YMIR_BOOTSTRAP_MIDGARD_VERSION`). If `toolchain/` doesn't have it yet, it is downloaded from
   the yruntime release.
-- `$(D_TARGET_OBJS)`, which `ymir1` links, is built on its own, so the D frontend is not enabled.
 
 `start` makes the extracted gyc work outside `/usr`. It links in the system `gcc-<major>` pieces
 (collect2, crt files, lto plugin). It also adds `lib/gcc/<triple>/<major>/include/ymir`: run from
