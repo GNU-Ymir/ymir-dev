@@ -1,0 +1,12 @@
+# Built or fetched by start/preview
+/repos/
+/toolchain/
+/work/
+/build/
+/target/
+/logs/
+/.venv/
+__pycache__/
+
+# Machine-local: the repo paths start was given
+/ymir-dev.json
