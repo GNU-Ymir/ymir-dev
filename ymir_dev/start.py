@@ -9,7 +9,7 @@ import shutil
 import urllib.request
 from pathlib import Path
 
-from .common import (REPOS, TOOLCHAIN, TRIPLE, die, load_config, read_shell_vars, require, run,
+from .common import (REPOS, ROOT, TOOLCHAIN, TRIPLE, die, load_config, read_shell_vars, require, run,
                      save_config, say, short, toml_version, CONFIG)
 
 REMOTES = {
@@ -130,6 +130,21 @@ def install_toolchain(bootstrap: Path, config: dict, force: bool) -> dict:
     return wanted
 
 
+def install_ymirc() -> None:
+    """Links ~/.local/bin/ymirc to the venv's `ymirc` entry point: `uv run exec` from anywhere."""
+    script = ROOT / ".venv" / "bin" / "ymirc"
+    link = Path.home() / ".local" / "bin" / "ymirc"
+    if not script.exists():
+        die(f"{script} is missing, run `uv sync` in {ROOT}")
+    if link.is_symlink() and link.resolve() == script.resolve():
+        return
+    if link.exists() or link.is_symlink():
+        die(f"{link} already exists and is not ours, remove it to install ymirc")
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(script)
+    say(f"installed {link}")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="start", description=__doc__.splitlines()[0])
     for name in REMOTES:
@@ -143,6 +158,7 @@ def main() -> None:
     config["repos"] = fetch_repos(args, config)
     config["toolchain"] = install_toolchain(Path(config["repos"]["bootstrap"]), config, args.force_toolchain)
     save_config(config)
+    install_ymirc()
     for name, path in config["repos"].items():
         print(f"  {name:<9} {path}")
     say("ready - `uv run preview` builds the dev gyc into target/")
