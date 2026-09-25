@@ -5,6 +5,9 @@ description = "Builds a preview gyc from the dev gymir, bootstrap and midgard tr
 requires-python = ">=3.11"
 dependencies = []
 
+[project.scripts]
+start = "ymir_dev.start:main"
+
 [build-system]
 requires = ["uv_build>=0.8,<0.12"]
 build-backend = "uv_build"
