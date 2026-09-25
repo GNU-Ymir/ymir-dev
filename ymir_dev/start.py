@@ -5,6 +5,7 @@ extracted from its release .debs into toolchain/ - no root, the system install i
 """
 
 import argparse
+import os
 import shutil
 import urllib.request
 from pathlib import Path
@@ -138,7 +139,10 @@ def install_ymirc() -> None:
         die(f"{script} is missing, run `uv sync` in {ROOT}")
     if link.is_symlink() and link.resolve() == script.resolve():
         return
-    if link.exists() or link.is_symlink():
+    # A link into another .venv/bin/ymirc is ours, left by a ymir-dev that has since moved.
+    if link.is_symlink() and os.readlink(link).endswith("/.venv/bin/ymirc"):
+        link.unlink()
+    elif link.exists() or link.is_symlink():
         die(f"{link} already exists and is not ours, remove it to install ymirc")
     link.parent.mkdir(parents=True, exist_ok=True)
     link.symlink_to(script)
