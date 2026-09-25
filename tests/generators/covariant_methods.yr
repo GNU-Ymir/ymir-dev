@@ -1,0 +1,40 @@
+use std::io;
+
+class Shape {
+    pub self () {}
+    pub fn area (self)-> i32 { 0 }
+}
+
+class Square over Shape {
+    let _side : i32;
+    pub self (side : i32) with _side = side {}
+    pub over area (self)-> i32 { self._side * self._side }
+}
+
+@abstract
+class Source {
+    pub self () {}
+    pub yield shapes (self)-> &Shape;
+}
+
+class Squares over Source {
+    let _n : i32;
+    pub self (n : i32) with _n = n {}
+
+    pub over yield shapes (self)-> &Square {
+        for i in 1 .. self._n + 1 {
+            yield copy Square (i);
+        }
+    }
+}
+
+fn collect (s : &Source)-> [&Shape] {
+    return copy [x for x in s.shapes ()];
+}
+
+fn main () {
+    for x in collect (copy Squares (4)) { print (x.area (), " "); }
+    println ();
+    for x in (copy Squares (3)).shapes () { print (x.area (), " "); }
+    println ();
+}
