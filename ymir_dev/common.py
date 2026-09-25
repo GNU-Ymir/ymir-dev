@@ -38,6 +38,9 @@ def run(cmd: list, cwd: Path | None = None, env: dict | None = None, log: str | 
         return
     LOGS.mkdir(exist_ok=True)
     path = LOGS / f"{log}.log"
+    # Writing to a file, stdio buffers by blocks: line-buffer it so the log fills as the step runs.
+    if shutil.which("stdbuf"):
+        cmd = ["stdbuf", "-oL", "-eL", *cmd]
     with open(path, "wb") as out:
         code = subprocess.run(cmd, cwd=cwd, env=env, stdout=out, stderr=subprocess.STDOUT).returncode
     if code != 0:
