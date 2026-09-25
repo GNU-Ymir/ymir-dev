@@ -1,0 +1,27 @@
+use std::io;
+
+class Oops over Exception {
+    pub let code : i32;
+    pub self (code : i32) with code = code {}
+}
+
+fn check (i : i32)-> i32 throws Oops {
+    if i % 3 == 0 { throw copy Oops (i); }
+    i * 10
+}
+
+fn main () {
+    for i in 1 .. 7 {
+        let r = {
+            check (i)
+        } catch {
+            o : &Oops => {
+                println ("caught ", o.code);
+                -1
+            }
+        } exit {
+            println ("exit ", i);
+        };
+        println ("r = ", r);
+    }
+}

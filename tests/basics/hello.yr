@@ -1,0 +1,9 @@
+use std::io;
+
+fn main () {
+    println ("hello ", 1 + 2);
+    for i in copy [1, 2, 3] {
+        print (i, " ");
+    }
+    println ();
+}

@@ -1,0 +1,18 @@
+use std::io;
+
+fn sum {T} (a : [T])-> T {
+    let mut s = T::init;
+    for x in a { s = s + x; }
+    s
+}
+
+fn apply {F : fn (i32)-> i32} (x : i32)-> i32 { F (x) }
+
+fn main () {
+    println (sum (copy [1, 2, 3, 4]));
+    println (sum (copy [1i64, 2i64]));
+    println (apply!{|x| => x * x} (7));
+    let k = 3;
+    let add = copy |x : i32| => x + k;
+    println (add (4));
+}

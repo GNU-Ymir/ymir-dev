@@ -1,0 +1,61 @@
+use std::io;
+
+class Range {
+    let _lo : i32;
+    let _hi : i32;
+    pub self (lo : i32, hi : i32) with _lo = lo, _hi = hi {}
+
+    pub yield each (self)-> i32 {
+        for i in self._lo .. self._hi {
+            yield i;
+        }
+    }
+}
+
+class Evens over Range {
+    pub self (lo : i32, hi : i32) with super (lo, hi) {}
+
+    pub over yield each (self)-> i32 {
+        for i in self.super.each () {
+            if i % 2 == 0 { yield i; }
+        }
+    }
+}
+
+trait Seq {
+    pub yield items (self)-> i32 {
+        yield 0;
+    }
+}
+
+record Pair {
+    pub let a : i32;
+    pub let b : i32;
+    pub self (a : i32, b : i32) with a = a, b = b {}
+
+    impl Seq {
+        pub over yield items (self)-> i32 {
+            yield self.a;
+            yield self.b;
+        }
+    }
+}
+
+class Empty {
+    pub self () {}
+    impl Seq;
+}
+
+fn show (r : &Range) {
+    for x in r.each () { print (x, " "); }
+    println ();
+}
+
+fn main () {
+    show (copy Range (1, 6));
+    show (copy Evens (1, 10));
+    for x in Pair (7, 8).items () { print (x, " "); }
+    println ();
+    for x in Empty ().items () { print (x, " "); }
+    println ();
+}

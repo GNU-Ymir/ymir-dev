@@ -1,0 +1,10 @@
+use std::io;
+
+fn main () {
+    let n = read!{i32} ();
+    let mut s = 0;
+    for _ in 0 .. n {
+        s += read!{i32} ();
+    }
+    println ("sum of ", n, ": ", s);
+}

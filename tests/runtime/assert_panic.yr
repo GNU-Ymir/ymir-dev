@@ -1,0 +1,9 @@
+fn fail (i : i32) throws AssertError {
+    assert (i < 3, "too big");
+}
+
+fn main () throws AssertError {
+    for i in 0 .. 5 {
+        fail (i);
+    }
+}

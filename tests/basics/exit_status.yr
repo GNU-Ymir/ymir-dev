@@ -1,0 +1,6 @@
+use std::io;
+
+fn main ()-> i32 {
+    println ("bye");
+    3
+}
