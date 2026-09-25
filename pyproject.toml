@@ -8,6 +8,7 @@ dependencies = []
 [project.scripts]
 start = "ymir_dev.start:main"
 preview = "ymir_dev.preview:main"
+tests = "ymir_dev.tests:main"
 exec = "ymir_dev.exec_:main"
 ymirc = "ymir_dev.exec_:main"
 prepare-release = "ymir_dev.release:main"
