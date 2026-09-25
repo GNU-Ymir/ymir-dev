@@ -1,12 +1,9 @@
-#!/usr/bin/env python3
 """Adds to CD_suite's bootstrap chain the gyc releases it does not list yet.
-
-usage: cd_suite_stages.py <CD_suite amd64/deb> <gymir> <yruntime> <gyllir releases, comma separated>
 
 The chain holds one stage per minor, its last patch, since 1.N.* compiles from the last 1.(N-1).*:
 a newer patch of the last stage's minor replaces it, and each newer minor is appended. The midgard
 each stage bundles and the gyllir it builds are asked on the terminal. Edits utils/versions.py and
-config.yaml in place, and prints the name of each stage written.
+config.yaml in place, and returns the name of each stage written.
 """
 
 import re
@@ -80,10 +77,11 @@ def render(name: str, comments: list[str], prev_gyc: str, prev_gyllir: str, v, u
     return "\n".join(lines) + "\n"
 
 
-def main() -> int:
-    deb, gymir, yruntime = sys.argv[1:4]
-    gyllirs = [t for t in sys.argv[4].split(",") if SEMVER.match(t)]
-    sys.path.insert(0, deb)
+def add_stages(deb: Path, gymir: Path, yruntime: Path, gyllirs: list[str], tty) -> list[str]:
+    """deb is CD_suite's amd64/deb, gyllirs the gyllir releases, answers are read from tty."""
+    gymir, yruntime = str(gymir), str(yruntime)
+    gyllirs = [t for t in gyllirs if SEMVER.match(t)]
+    sys.path.insert(0, str(deb))
     from utils import versions as V
 
     last_name = list(V.STAGES)[-1]
@@ -96,7 +94,7 @@ def main() -> int:
         if key(tag) > key(last.versions.bootstrap):
             newest[key(tag)[:2]] = tag
     if not newest:
-        return 0
+        return []
 
     replaced = newest.pop(key(last.versions.bootstrap)[:2], None)
     chain = ([replaced] if replaced else []) + [newest[minor] for minor in sorted(newest)]
@@ -115,32 +113,31 @@ def main() -> int:
     appended: list[tuple[str, str]] = []
     base = last
 
-    with open("/dev/tty") as tty:
-        for i, gyc in enumerate(chain):
-            if gyc == replaced:
-                prev_gyc, prev_gyllir = last.prev_gyc, last.prev_gyllir
-            else:
-                prev_gyc = f"{base.versions.target_major}_{base.versions.bootstrap}"
-                prev_gyllir = produced_gyllir
+    for i, gyc in enumerate(chain):
+        if gyc == replaced:
+            prev_gyc, prev_gyllir = last.prev_gyc, last.prev_gyllir
+        else:
+            prev_gyc = f"{base.versions.target_major}_{base.versions.bootstrap}"
+            prev_gyllir = produced_gyllir
 
-            midgard = ask(tty, f"CD_suite: midgard bundled by gyc {gyc}", bundled_midgard(gymir, yruntime, gyc))
-            newer = [g for g in gyllirs if not SEMVER.match(produced_gyllir) or key(g) > key(produced_gyllir)]
-            default = newer[-1] if newer and i == len(chain) - 1 else ""
-            gyllir = ask(tty, f"CD_suite: gyllir built with gyc {gyc} (empty for none)", default)
+        midgard = ask(tty, f"CD_suite: midgard bundled by gyc {gyc}", bundled_midgard(gymir, yruntime, gyc))
+        newer = [g for g in gyllirs if not SEMVER.match(produced_gyllir) or key(g) > key(produced_gyllir)]
+        default = newer[-1] if newer and i == len(chain) - 1 else ""
+        gyllir = ask(tty, f"CD_suite: gyllir built with gyc {gyc} (empty for none)", default)
 
-            v = V.GycVersions(compiler=base.versions.compiler, target=base.versions.target,
-                              ymir=gyc, bootstrap=gyc, midgard=midgard)
-            name = f"bootstrap_v{gyc}"
-            rendered = render(name, comments, prev_gyc, prev_gyllir, v, ubuntu, gyllir)
-            if gyc == replaced:
-                text = text.replace(base_block, rendered)
-            else:
-                appended.append((name, rendered))
+        v = V.GycVersions(compiler=base.versions.compiler, target=base.versions.target,
+                          ymir=gyc, bootstrap=gyc, midgard=midgard)
+        name = f"bootstrap_v{gyc}"
+        rendered = render(name, comments, prev_gyc, prev_gyllir, v, ubuntu, gyllir)
+        if gyc == replaced:
+            text = text.replace(base_block, rendered)
+        else:
+            appended.append((name, rendered))
 
-            if gyllir:
-                produced_gyllir = gyllir
-            base = V.BootstrapStage(prev_gyc=prev_gyc, prev_gyllir=prev_gyllir, versions=v,
-                                    ubuntu_version=last.ubuntu_version)
+        if gyllir:
+            produced_gyllir = gyllir
+        base = V.BootstrapStage(prev_gyc=prev_gyc, prev_gyllir=prev_gyllir, versions=v,
+                                ubuntu_version=last.ubuntu_version)
 
     end = text.rstrip().rindex("}")
     text = text[:end] + "".join(r for _, r in appended) + text[end:]
@@ -153,10 +150,4 @@ def main() -> int:
     lines[listed + 1:listed + 1] = [f"- {n}\n" for n, _ in appended]
     config.write_text("".join(lines))
 
-    for gyc in chain:
-        print(f"bootstrap_v{gyc}")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    return [f"bootstrap_v{gyc}" for gyc in chain]

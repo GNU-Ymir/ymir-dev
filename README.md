@@ -25,10 +25,13 @@ Opens the pull requests that prepare the next gyc release, one per repository:
 - **gymir**: `YMIR_VERSION` releasing that gyc and bundling the yruntime branch.
 - **CD_suite**: the bootstrap chain stages of the gyc releases it does not list yet.
 
-Bootstrap is the source of truth and is bumped by hand beforehand. Every value is asked on the
-terminal, with bootstrap's default branch as the default. It works in fresh clones under `/tmp`,
-so it does not use `repos/` or any other checkout. It needs `gh` authenticated. `--dry-run`
-prints the commits and pushes nothing.
+Bootstrap is the source of truth. Every value is asked on the terminal, with bootstrap's default
+branch as the default. First, it offers to edit bootstrap's `YMIR_VERSION` in `$VISUAL`/`$EDITOR`
+(vim by default). If you change it, it asks for the bootstrap work item (`YMI-*`), opens that
+bootstrap pull request, and stops there: merge it, then run `prepare-release` again once the
+change is on bootstrap's default branch. It works in fresh clones under `/tmp`, so it does not use
+`repos/` or any other checkout. It needs `gh` authenticated. `--dry-run` prints the commits and
+pushes nothing.
 
 ## Existing checkouts
 
