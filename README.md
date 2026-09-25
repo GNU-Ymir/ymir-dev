@@ -10,6 +10,10 @@ uv run exec main.yr -o main   # target/bin/gyc -iprefix target <args>
 ymirc main.yr -o main         # the same, from any directory
 ```
 
+`preview` builds whatever each repo has checked out, branch and uncommitted changes included. When
+the checked-out bootstrap pins another gyc or gyllir than `toolchain/` holds, `preview` reinstalls
+it first, so switching bootstrap branches needs no new `start`.
+
 `start` also installs `~/.local/bin/ymirc`, a symlink to the project venv's `ymirc` entry point. The
 project is installed editable, and `ymirc` follows whatever the last `uv run preview` built.
 

@@ -84,11 +84,16 @@ def ensure_host_runtime(bootstrap: Path) -> None:
         download(f"https://github.com/GNU-Ymir/yruntime/releases/download/{std}/libmidgard_debug_{std}.a", lib)
 
 
-def install_toolchain(bootstrap: Path, config: dict, force: bool) -> dict:
+def pinned_toolchain(bootstrap: Path) -> dict:
+    """The toolchain the checked-out bootstrap's YMIR_VERSION pins, as ymir-dev.json records it."""
     versions = read_shell_vars(bootstrap / "YMIR_VERSION")
-    gyc, gyllir = versions["YMIR_BOOTSTRAP_VERSION"], versions["GYLLIR_VERSION"]
-    major = versions["GCC_VERSION"].split(".")[0]
-    wanted = {"gyc": gyc, "gyllir": gyllir, "gcc_major": major}
+    return {"gyc": versions["YMIR_BOOTSTRAP_VERSION"], "gyllir": versions["GYLLIR_VERSION"],
+            "gcc_major": versions["GCC_VERSION"].split(".")[0]}
+
+
+def install_toolchain(bootstrap: Path, config: dict, force: bool) -> dict:
+    wanted = pinned_toolchain(bootstrap)
+    gyc, gyllir, major = wanted["gyc"], wanted["gyllir"], wanted["gcc_major"]
 
     usr = TOOLCHAIN / "usr"
     if force or config.get("toolchain") != wanted:

@@ -172,7 +172,13 @@ def main() -> None:
             shutil.rmtree(d, ignore_errors=True)
 
     bootstrap = Path(repos["bootstrap"])
-    start.ensure_host_runtime(bootstrap)
+    # A bootstrap branch may pin another gyc or gyllir than the one `start` installed.
+    if config.get("toolchain") != start.pinned_toolchain(bootstrap):
+        say("the checked-out bootstrap pins another toolchain")
+        config["toolchain"] = start.install_toolchain(bootstrap, config, force=False)
+        save_config(config)
+    else:
+        start.ensure_host_runtime(bootstrap)
     midgard_full = toml_version(Path(repos["midgard"]) / "gyllir.toml")
     std = toml_version(bootstrap / "gyllir.toml", "std")
     say(f"dev midgard {midgard_full}, bootstrap compiled against std {std}")
