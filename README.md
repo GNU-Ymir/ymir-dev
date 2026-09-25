@@ -13,6 +13,25 @@ ymirc main.yr -o main         # the same, from any directory
 `start` also installs `~/.local/bin/ymirc`, a symlink to the project venv's `ymirc` entry point. The
 project is installed editable, and `ymirc` follows whatever the last `uv run preview` built.
 
+## Releasing
+
+```sh
+uv run prepare-release [--dry-run]
+```
+
+Opens the pull requests that prepare the next gyc release, one per repository:
+
+- **yruntime**: a branch declaring the midgard that gyc bundles, built with that gyc.
+- **gymir**: `YMIR_VERSION` releasing that gyc and bundling the yruntime branch.
+- **CD_suite**: the bootstrap chain stages of the gyc releases it does not list yet.
+
+Bootstrap is the source of truth and is bumped by hand beforehand. Every value is asked on the
+terminal, with bootstrap's default branch as the default. It works in fresh clones under `/tmp`,
+so it does not use `repos/` or any other checkout. It needs `gh` authenticated. `--dry-run`
+prints the commits and pushes nothing.
+
+## Existing checkouts
+
 To reuse existing checkouts instead of cloning, pass them to `start` once (they are remembered in
 `ymir-dev.json`):
 
