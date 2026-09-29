@@ -1,0 +1,72 @@
+use std::io;
+
+class A {
+    let _v : i32;
+    pub self (v : i32) with _v = v {}
+    pub fn foo (self)-> i32 { self._v }
+    pub fn bar (self)-> i32 { self._v * 10 }
+}
+
+class B over A {
+    let _w : i32;
+    pub self (v : i32, w : i32) with super (v), _w = w {}
+    pub over foo (self)-> i32 { self._w }
+}
+
+@final
+class C over B {
+    pub self (v : i32) with super (v, v + 1) {}
+    pub over bar (self)-> i32 { self._w * 100 }
+}
+
+fn delegateOnAllocated ()-> i32 {
+    let a = copy A (7);
+    let d = &a.foo;
+
+    d ()
+}
+
+fn inheritedOnAllocated ()-> i32 {
+    let a : &A = copy B (2, 5);
+    a.foo () + a.bar ()
+}
+
+fn onFinal (c : &C)-> i32 {
+    c.foo () + c.bar ()
+}
+
+fn reassigned (cond : bool)-> i32 {
+    let mut a : &A = copy A (1);
+    if (cond) { a = copy B (1, 9); }
+
+    a.foo ()
+}
+
+fn inLoop ()-> i32 {
+    let mut sum = 0;
+    for i in 0 .. 4 {
+        let a : &A = copy B (i, i * 2);
+        sum += a.foo ();
+    }
+
+    sum
+}
+
+fn apply (f : dg (i32)-> i32, x : i32)-> i32 {
+    f (x)
+}
+
+fn closure (k : i32)-> i32 {
+    let f : dg (i32)-> i32 = copy |x : i32| => x + k;
+
+    f (4) + apply (f, 5)
+}
+
+fn main () {
+    println (delegateOnAllocated ());
+    println (inheritedOnAllocated ());
+    println (onFinal (copy C (3)));
+    println (reassigned (true), " ", reassigned (false));
+    println (inLoop ());
+    println (closure (3));
+}

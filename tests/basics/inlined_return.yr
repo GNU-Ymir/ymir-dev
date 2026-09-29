@@ -1,0 +1,19 @@
+use std::io;
+use std::conv;
+
+// GCC inlines or clones this at -O2 and up: the value it returns must still reach the caller
+fn join(n: u64)-> [c8] {
+    let mut s : [c8] = "";
+    let mut i = 0u64;
+    while i < n {
+        if (i != 0u64) { s = s ~ ","s8; }
+        s = s ~ conv::to!{[c8]}(i);
+        i += 1u64;
+    }
+    s
+}
+
+fn main () {
+    let s = join(12u64);
+    println (s.len, " ", s);
+}
