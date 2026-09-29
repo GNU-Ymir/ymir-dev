@@ -1,0 +1,38 @@
+use std::io;
+
+@data
+record A {}
+
+record B {
+    pub let x : i32;
+    pub self (x : i32) with x = x {}
+}
+
+union U
+| A
+| B;
+
+class C {
+    pub self () {}
+}
+
+class D {
+    pub self () {}
+}
+
+union V
+| C
+| D;
+
+fn foo (u : U) {
+    println (u);
+}
+
+fn main () {
+    foo (A ());
+    foo (B (3));
+
+    let c : &V = copy C ();
+    let d : &V = copy D ();
+    println ([c, d]);
+}

@@ -1,0 +1,3 @@
+print_plain::A()
+print_plain::B()
+[print_plain::C(), print_plain::D()]

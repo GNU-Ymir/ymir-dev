@@ -1,0 +1,4 @@
+print_classes::Cat(tom)
+woof
+[print_classes::Cat(tom), woof]
+(print_classes::Cat(tom), woof)

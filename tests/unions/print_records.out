@@ -1,0 +1,6 @@
+print_records::Point(1, 2)
+"hi"
+print_records::Point(3, 4)
+[print_records::Point(1, 2), "hi", print_records::Point(3, 4)]
+4
+print_records::Point(1, 2) | "hi"
