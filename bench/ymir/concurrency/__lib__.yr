@@ -1,0 +1,58 @@
+in __lib__;
+
+use std::io;
+use std::time::instant;
+
+fn runBench(work: dg ()-> void) {
+    let mut i = 0u32;
+    while i < 2u32 { work(); i += 1u32; }
+
+    i = 0u32;
+    while i < 21u32 {
+        let start = Instant::now();
+        work();
+        let end = Instant::now();
+        println (cast!f64((end - start).allMicros) / 1000.0);
+        i += 1u32;
+    }
+}
+
+fn partialSum(data: [i64], lo: usize, hi: usize)-> i64 {
+    let mut s = 0i64;
+    let mut i = lo;
+    while i < hi {
+        s += data[i];
+        i += 1us;
+    }
+    s
+}
+
+fn parallelSum(data: [i64])-> i64 {
+    let n = data.len;
+    let chunk = n / 4us;
+
+    let dmut h0 = spawn partialSum(data, 0us, chunk);
+    let dmut h1 = spawn partialSum(data, chunk, 2us * chunk);
+    let dmut h2 = spawn partialSum(data, 2us * chunk, 3us * chunk);
+    let dmut h3 = spawn partialSum(data, 3us * chunk, n);
+
+    h0.value + h1.value + h2.value + h3.value
+}
+
+fn main () {
+    let n = 2000000us;
+    let dmut data = array::allocArray!i64(n);
+    let mut i = 0us;
+    while i < n {
+        data[i] = cast!i64(i);
+        i += 1us;
+    }
+
+    let dmut sink = copy [0i64];
+
+    let f : dg ()-> void = copy || => {
+        sink[0] = parallelSum(data);
+    };
+
+    runBench(f);
+}

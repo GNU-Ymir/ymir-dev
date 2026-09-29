@@ -1,0 +1,60 @@
+in __lib__;
+
+use std::io;
+use std::time::instant;
+
+fn runBench(work: dg ()-> void) {
+    let mut i = 0u32;
+    while i < 2u32 { work(); i += 1u32; }
+
+    i = 0u32;
+    while i < 21u32 {
+        let start = Instant::now();
+        work();
+        let end = Instant::now();
+        println (cast!f64((end - start).allMicros) / 1000.0);
+        i += 1u32;
+    }
+}
+
+@abstract
+class Base {
+    prot self () {}
+    pub fn value(self)-> i64 { 0 }
+}
+
+class A over Base {
+    pub self () {}
+    pub over value(self)-> i64 { 1 }
+}
+
+class B over Base {
+    pub self () {}
+    pub over value(self)-> i64 { 2 }
+}
+
+fn main () {
+    let dmut objs : [&Base] = [];
+    let mut i = 0u64;
+    while i < 1000u64 {
+        if (i % 2u64 == 0u64) { objs ~= [copy A()]; }
+        else { objs ~= [copy B()]; }
+        i += 1u64;
+    }
+
+    let dmut sink = copy [0i64];
+
+    let f : dg ()-> void = copy || => {
+        let mut total = 0i64;
+        let mut r = 0u64;
+        while r < 1000u64 {
+            for o in objs {
+                total += o.value();
+            }
+            r += 1u64;
+        }
+        sink[0] = total;
+    };
+
+    runBench(f);
+}

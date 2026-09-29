@@ -1,0 +1,36 @@
+in __lib__;
+
+use std::io;
+use std::time::instant;
+use std::conv;
+
+fn runBench(work: dg ()-> void) {
+    let mut i = 0u32;
+    while i < 2u32 { work(); i += 1u32; }
+
+    i = 0u32;
+    while i < 21u32 {
+        let start = Instant::now();
+        work();
+        let end = Instant::now();
+        println (cast!f64((end - start).allMicros) / 1000.0);
+        i += 1u32;
+    }
+}
+
+fn main () {
+    let dmut sink = copy [0us];
+
+    let f : dg ()-> void = copy || => {
+        let dmut m : [[c8] => i32] = copy [];
+        let mut i = 0u64;
+        while i < 100000u64 {
+            let k = "key_"s8 ~ conv::to!{[c8]}(i);
+            m[k] = cast!i32(i);
+            i += 1u64;
+        }
+        sink[0] = m.len;
+    };
+
+    runBench(f);
+}

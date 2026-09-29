@@ -1,0 +1,60 @@
+in __lib__;
+
+use std::io;
+use std::time::instant;
+use std::conv;
+
+fn runBench(work: dg ()-> void) {
+    let mut i = 0u32;
+    while i < 2u32 { work(); i += 1u32; }
+
+    i = 0u32;
+    while i < 21u32 {
+        let start = Instant::now();
+        work();
+        let end = Instant::now();
+        println (cast!f64((end - start).allMicros) / 1000.0);
+        i += 1u32;
+    }
+}
+
+fn buildSrc()-> [c8] {
+    let mut s : [c8] = "";
+    let mut i = 0u64;
+    while i < 30000u64 {
+        if (i != 0u64) { s = s ~ ","s8; }
+        s = s ~ conv::to!{[c8]}(i);
+        i += 1u64;
+    }
+    s
+}
+
+fn main () {
+    let src = buildSrc();
+    let dmut sink = copy [0i64];
+
+    let f : dg ()-> void = copy || => {
+        let mut total = 0i64;
+        let mut start = 0us;
+        let mut i = 0us;
+        while i < src.len {
+            if (src[i] == ',') {
+                {
+                    total += conv::to!{i64}(src[start .. i]);
+                } catch {
+                    _ => {}
+                }
+                start = i + 1us;
+            }
+            i += 1us;
+        }
+        {
+            total += conv::to!{i64}(src[start .. src.len]);
+        } catch {
+            _ => {}
+        }
+        sink[0] = total;
+    };
+
+    runBench(f);
+}
