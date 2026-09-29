@@ -88,6 +88,35 @@ change is on bootstrap's default branch. It works in fresh clones under `/tmp`, 
 `repos/` or any other checkout. It needs `gh` authenticated. `--dry-run` prints the commits and
 pushes nothing.
 
+### Release workflow
+
+gyc `<v>` is released from the heads of bootstrap's and gymir's default branches, and bundles a
+new midgard, the next minor of yruntime's last tag:
+
+1. **Tickets.** In Plane, one `Prepare <v>` work item per repository that gets a branch: `GYC-*`
+   (gymir) and `MID-*` (yruntime). Add a `YMI-*` (bootstrap) when bootstrap's `YMIR_VERSION`
+   changes, and a `BUILD-*` (CD_suite) when prepare-release has chain stages to add. The branches
+   and pull request titles are named after these keys.
+2. **Bootstrap.** Its default branch declares `<v>` (`gyllir.toml`'s `version`) and the toolchain
+   that compiles it (`YMIR_VERSION`: the last gyc of the previous minor, and the midgard it
+   compiles against). To change the toolchain, run `prepare-release`, edit `YMIR_VERSION` when
+   asked, and merge the `YMI-*` pull request it opens.
+3. **Tag bootstrap.** Dispatch bootstrap's *Release* workflow on its default branch. It tags `<v>`
+   and publishes `libymirc`. gymir's release checks this tag out and fails without it.
+4. **`uv run prepare-release`.** It opens:
+   - yruntime `MID-*-compile-from-<major.minor>`: `YMIR_BOOTSTRAP_VERSION=<v>`, and the midgard
+     version bumped to the next minor;
+   - gymir `GYC-*-prepare-<v>`: `YMIR_VERSION` restating bootstrap's, with `MIDGARD_BRANCH` on the
+     yruntime branch;
+   - CD_suite: the stages of the released gyc it does not list yet. The gyc being prepared is not
+     released yet, so its stage comes with the next release.
+5. **Midgard.** Whatever the new gyc requires of the std goes on the yruntime branch. Leave its
+   pull request open: the release merges it.
+6. **Merge gymir's pull request**, then dispatch gymir's *Release* workflow. It builds gyc from the
+   bootstrap tag, bundles the head of `MIDGARD_BRANCH`, and publishes the `.deb`. Then it
+   dispatches yruntime's release, which builds midgard with that gyc, tags its version, and merges
+   the yruntime pull request.
+
 ## Existing checkouts
 
 To reuse existing checkouts instead of cloning, pass them to `start` once (they are remembered in
