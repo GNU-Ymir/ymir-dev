@@ -1,0 +1,21 @@
+use std::io;
+
+fn fromArg (a : [i32 => i32]) {
+    let e = [a, a];
+    let dmut f = dcopy e;
+    f [1][5] = 4;
+    println (f, " ", a);
+}
+
+fn main () {
+    let a = copy [1 => 2];
+    let e = [a, a];
+    let dmut f = dcopy e;
+    println (f);
+
+    let dmut g = dcopy [copy [1 => 2] ; 2];
+    g [0][1] = 7;
+    println (g);
+
+    fromArg (copy [5 => 6]);
+}

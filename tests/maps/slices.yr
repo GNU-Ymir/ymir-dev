@@ -1,0 +1,23 @@
+use std::io;
+
+record R {
+    pub let m : [i32 => i32];
+    pub let tag : i32;
+    pub self (m : [i32 => i32], tag : i32) with m = m, tag = tag {}
+}
+
+fn tail (s : [[i32 => i32]])-> [[i32 => i32]] {
+    s [1 .. $]
+}
+
+fn main () {
+    let s : [[i32 => i32]] = copy [copy [1 => 2], copy [3 => 4], copy [5 => 6]];
+    println (s);
+    println (tail (s), " ", s [2], " ", s [1 .. 2]);
+    println ([i32 => i32]::size);
+
+    let dmut rs = copy [R (copy [1 => 10], 1), R (copy [2 => 20], 2), R (copy [3 => 30], 3)];
+    for r in rs [1 .. $] {
+        println (r.tag, " ", r.m);
+    }
+}
