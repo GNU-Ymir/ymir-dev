@@ -9,6 +9,7 @@ uv run preview    # build gyc from them into target/, midgard included
 uv run exec main.yr -o main   # target/bin/gyc -iprefix target <args>
 ymirc main.yr -o main         # the same, from any directory
 uv run tests                  # compile and run tests/, checking their expected outputs
+uv run bench                  # time bench/ with ymirc, gyc, C++ and Python, into an HTML report
 ```
 
 `preview` builds whatever each repo has checked out, branch and uncommitted changes included. When
@@ -40,6 +41,32 @@ against the files of the same basename:
 A failing run leaves its binary, stdout, stderr and status in `build/tests/<suite>/<name>.<mode>.*`.
 To add a case, write the `.yr`, run `uv run tests <name> --update`, and **read the `.out` it wrote**
 before committing it. `--update` writes `.out` and `.status` only. A `.stderr` is written by hand.
+
+## Benchmarks
+
+```sh
+uv run bench                          # every benchmark, the preview against the gyc on PATH
+uv run bench --gyc 1.3.0              # against a gymir release, fetched into build/bench/gyc-1.3.0
+uv run bench --gyc /path/to/gyc       # against any gyc binary
+uv run bench map_insert map_lookup    # only these benchmarks
+```
+
+`bench/` holds each benchmark once per language: `ymir/<name>/__lib__.yr`, `cpp/<name>.cpp` and
+`python/<name>.py`. Every program times itself (2 warmup iterations, then 21 timed ones, one ms
+value per line). The preview gyc (`ymirc`), the other gyc and `g++` build them at `-O3` (`-O` to
+change it). Each benchmark then runs `--rounds` times per language (3 by default). The rounds are
+interleaved and flip the ymirc/gyc order each time, so a drift in the machine hits both compilers
+alike.
+
+Single-threaded benchmarks are pinned to the fastest CPU but cpu0 (`--cpu N` picks one, `--no-pin`
+turns it off). A benchmark whose round medians differ by more than 25% for a compiled language is
+marked noisy and left out of the summary. On a power-saving profile, tight loops can run 3× slower
+from one run to the next. The report flags that setting, and `powerprofilesctl set performance`
+before a run gives numbers worth comparing.
+
+The results land in `build/bench/results.json` and `build/bench/report.html`. The report has
+the speedup of ymirc over the other gyc, each language against C++, and every median with its
+p25–p75 range. The logs of failed builds are in `build/bench/logs/`.
 
 ## Releasing
 
@@ -86,6 +113,8 @@ are incremental.
 | `build/gcc` | the GCC build dir |
 | `tests/` | the execution tests of `uv run tests` |
 | `build/tests` | the runs of the failing tests |
+| `bench/` | the benchmarks of `uv run bench`, in Ymir, C++ and Python |
+| `build/bench` | their binaries, `results.json`, `report.html`, and any release gyc `--gyc` fetched |
 | `target/` | the preview install: `bin/gyc`, `libexec/.../ymir1`, `include/ymir/<v>`, `lib/libgymidgard-*_<v>.a` |
 | `logs/` | configure, make, install, midgard build logs |
 
