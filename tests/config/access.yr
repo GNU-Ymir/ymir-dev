@@ -1,0 +1,29 @@
+use std::io;
+use std::config::{data, access, json, toml};
+use std::syntax::errors;
+
+fn main () throws SyntaxError {
+    let j = json::parse ("{\"server\" : {\"host\" : \"localhost\", \"ports\" : [80, 443], \"tls\" : true, \"ratio\" : 1}}");
+
+    println (j.at ("server", "ports", 1).int ());
+    println (j.str ("server", "host"));
+    println (j.at ("server").boolean ("tls"));
+    println (j.float ("server", "ratio"));
+    println (j.str ("server", "ports"));
+    println (if let Ok (_) = j.at ("server", "ports", 2) { "found" } else { "missing" });
+    println (j.int ("server", "timeout") ?? 30i64);
+
+    for p in j.elements ("server", "ports") {
+        println (p.int ());
+    }
+
+    let t = toml::parse ("[env]\nHOME = \"/home/foo\"\n");
+    for k, v in t.entries ("env") {
+        println (k, " = ", v.str () ?? "");
+    }
+
+    let s : &Config = copy Str ("foo");
+    let o : (&Config)? = s?;
+    let n : (&Config)? = none;
+    println (s.str (), " ", o.str (), " ", n.str (), " ", n.elements ().len);
+}
