@@ -1,0 +1,68 @@
+use std::io;
+
+yield vals (m: [[c8] => i32])-> i32 {
+    for _, v in m {
+        yield v;
+    }
+}
+
+yield pairs (m: [[c8] => i32])-> ([c8], i32) {
+    for k, v in m {
+        yield (k, v);
+    }
+}
+
+yield flat (m: [[c8] => [i32]])-> i32 {
+    for _, v in m {
+        for s in v {
+            yield s;
+        }
+    }
+}
+
+yield upTo (m: [i32 => i32], limit: i32)-> i32 {
+    for k in m {
+        if k > limit { break; }
+        yield k;
+    }
+    yield -1;
+}
+
+fn main () {
+    let mut sum = 0;
+    for x in vals (copy ["a" => 1, "b" => 3, "c" => 5]) {
+        sum += x;
+    }
+    println ("vals: ", sum);
+
+    let mut keys = 0us, mut weighted = 0;
+    for k, v in pairs (copy ["a" => 1, "bb" => 3, "ccc" => 5]) {
+        keys += k.len;
+        weighted += v * cast!i32 (k.len);
+    }
+    println ("pairs: ", keys, " ", weighted);
+
+    let mut total = 0, mut count = 0;
+    for s in flat (copy ["a" => copy [1, 2], "b" => copy [3], "c" => copy [4, 5, 6]]) {
+        total += s;
+        count += 1;
+    }
+    println ("flat: ", count, " ", total);
+
+    let mut last = 0;
+    for k in upTo (copy [20 => 1], 10) {
+        last = k;
+    }
+    println ("upTo: ", last);
+
+    let mut compr = 0;
+    for v in (yield v * 2 for _, v in copy ["a" => 1, "b" => 2]) {
+        compr += v;
+    }
+    println ("compr: ", compr);
+
+    for x in vals (copy ["a" => 7, "b" => 7]) {
+        println ("first: ", x);
+        break;
+    }
+}

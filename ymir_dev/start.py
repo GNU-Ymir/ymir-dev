@@ -17,6 +17,7 @@ REMOTES = {
     "gymir": "https://github.com/GNU-Ymir/gymir.git",
     "bootstrap": "https://github.com/GNU-Ymir/bootstrap.git",
     "midgard": "https://github.com/GNU-Ymir/yruntime.git",
+    "ymir-lsp": "git@github.com:GNU-Ymir/ymir-lsp.git",
 }
 GCC_REMOTE = "git://gcc.gnu.org/git/gcc.git"
 
@@ -39,7 +40,7 @@ def download(url: str, dest: Path) -> Path:
 def fetch_repos(args, config: dict) -> dict:
     repos = config.get("repos", {})
     for name, remote in REMOTES.items():
-        given = getattr(args, name)
+        given = getattr(args, name.replace("-", "_"))
         if given:
             repos[name] = str(Path(given).expanduser().resolve())
         elif name not in repos:
