@@ -1,0 +1,32 @@
+use std::{io, stream};
+
+class Cat {
+    let name : [c8];
+    pub self (name : [c8]) with name = name {}
+    impl Streamable;
+}
+
+class Dog {
+    pub self () {}
+    impl Streamable {
+        pub over toStream (self, dmut stream : &StringStream) {
+            stream:.write ("woof");
+        }
+    }
+}
+
+union Pet
+| Cat
+| Dog;
+
+fn main () {
+    let cat : &Pet = copy Cat ("tom");
+    let dog : &Pet = copy Dog ();
+    let pets = [cat, dog];
+    for p in pets {
+        println (p);
+    }
+
+    println (pets);
+    println ((pets[0], pets[1]));
+}

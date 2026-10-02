@@ -12,6 +12,7 @@ tests = "ymir_dev.tests:main"
 exec = "ymir_dev.exec_:main"
 ymirc = "ymir_dev.exec_:main"
 prepare-release = "ymir_dev.release:main"
+bench = "ymir_dev.bench:main"
 
 [build-system]
 requires = ["uv_build>=0.8,<0.12"]

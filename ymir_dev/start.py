@@ -77,6 +77,27 @@ def link_missing(system: Path, local: Path) -> None:
             (local / entry.name).symlink_to(entry)
 
 
+def relocate_gyc(usr: Path, major: str) -> None:
+    """Makes the gyc a release .deb was extracted into usr/ runnable from there."""
+    # The .deb carries only gyc's own files; collect2, the lto plugin, crtbegin.o... come from
+    # the system gcc of the same major, which the relocated driver looks for beside itself.
+    for sub in (f"libexec/gcc/{TRIPLE}/{major}", f"lib/gcc/{TRIPLE}/{major}"):
+        system, local = Path("/usr") / sub, usr / sub
+        if not system.is_dir():
+            die(f"{system} is missing: install gcc-{major} and g++-{major}")
+        link_missing(system, local)
+
+    # Run from outside /usr, the driver hands ymir1 `-iprefix <lib/gcc/...>/`, where ymirc then
+    # looks for include/ymir/<v> - the .deb ships it under libexec only.
+    include = usr / f"lib/gcc/{TRIPLE}/{major}/include"
+    if include.is_symlink():
+        include.unlink()
+    include.mkdir(exist_ok=True)
+    link_missing(Path("/usr") / f"lib/gcc/{TRIPLE}/{major}/include", include)
+    if not (include / "ymir").is_symlink():
+        (include / "ymir").symlink_to(usr / f"libexec/gcc/{TRIPLE}/{major}/include/ymir")
+
+
 def ensure_host_runtime(bootstrap: Path) -> None:
     """ymir1 is a Ymir program: it links the runtime of the std bootstrap is compiled against."""
     std = toml_version(bootstrap / "gyllir.toml", "std")
@@ -110,24 +131,7 @@ def install_toolchain(bootstrap: Path, config: dict, force: bool) -> dict:
         ):
             run(["dpkg-deb", "-x", deb, TOOLCHAIN])
 
-    # The .deb carries only gyc's own files; collect2, the lto plugin, crtbegin.o... come from
-    # the system gcc of the same major, which the relocated driver looks for beside itself.
-    for sub in (f"libexec/gcc/{TRIPLE}/{major}", f"lib/gcc/{TRIPLE}/{major}"):
-        system, local = Path("/usr") / sub, usr / sub
-        if not system.is_dir():
-            die(f"{system} is missing: install gcc-{major} and g++-{major}")
-        link_missing(system, local)
-
-    # Run from outside /usr, the driver hands ymir1 `-iprefix <lib/gcc/...>/`, where ymirc then
-    # looks for include/ymir/<v> - the .deb ships it under libexec only.
-    include = usr / f"lib/gcc/{TRIPLE}/{major}/include"
-    if include.is_symlink():
-        include.unlink()
-    include.mkdir(exist_ok=True)
-    link_missing(Path("/usr") / f"lib/gcc/{TRIPLE}/{major}/include", include)
-    if not (include / "ymir").is_symlink():
-        (include / "ymir").symlink_to(usr / f"libexec/gcc/{TRIPLE}/{major}/include/ymir")
-
+    relocate_gyc(usr, major)
     ensure_host_runtime(bootstrap)
     run([usr / "bin" / "gyc", "--version"])
     run([usr / "bin" / "gyllir", "--version"])

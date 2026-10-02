@@ -1,0 +1,48 @@
+in __lib__;
+
+use std::io;
+use std::time::instant;
+
+fn runBench(work: dg ()-> void) {
+    let mut i = 0u32;
+    while i < 2u32 { work(); i += 1u32; }
+
+    i = 0u32;
+    while i < 21u32 {
+        let start = Instant::now();
+        work();
+        let end = Instant::now();
+        println (cast!f64((end - start).allMicros) / 1000.0);
+        i += 1u32;
+    }
+}
+
+class MyError over core::exception::Exception {
+    pub self () {}
+}
+
+fn boom()
+    throws MyError
+{
+    throw copy MyError();
+}
+
+fn main () {
+    let dmut sink = copy [0i64];
+
+    let f : dg ()-> void = copy || => {
+        let mut total = 0i64;
+        let mut i = 0u64;
+        while i < 20000u64 {
+            {
+                boom();
+            } catch {
+                MyError() => { total += 1; }
+            }
+            i += 1u64;
+        }
+        sink[0] = total;
+    };
+
+    runBench(f);
+}

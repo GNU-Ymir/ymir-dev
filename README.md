@@ -9,6 +9,7 @@ uv run preview    # build gyc from them into target/, midgard included
 uv run exec main.yr -o main   # target/bin/gyc -iprefix target <args>
 ymirc main.yr -o main         # the same, from any directory
 uv run tests                  # compile and run tests/, checking their expected outputs
+uv run bench                  # time bench/ with ymirc, gyc, C++ and Python, into an HTML report
 ```
 
 `preview` builds whatever each repo has checked out, branch and uncommitted changes included. When
@@ -41,6 +42,32 @@ A failing run leaves its binary, stdout, stderr and status in `build/tests/<suit
 To add a case, write the `.yr`, run `uv run tests <name> --update`, and **read the `.out` it wrote**
 before committing it. `--update` writes `.out` and `.status` only. A `.stderr` is written by hand.
 
+## Benchmarks
+
+```sh
+uv run bench                          # every benchmark, the preview against the gyc on PATH
+uv run bench --gyc 1.3.0              # against a gymir release, fetched into build/bench/gyc-1.3.0
+uv run bench --gyc /path/to/gyc       # against any gyc binary
+uv run bench map_insert map_lookup    # only these benchmarks
+```
+
+`bench/` holds each benchmark once per language: `ymir/<name>/__lib__.yr`, `cpp/<name>.cpp` and
+`python/<name>.py`. Every program times itself (2 warmup iterations, then 21 timed ones, one ms
+value per line). The preview gyc (`ymirc`), the other gyc and `g++` build them at `-O3` (`-O` to
+change it). Each benchmark then runs `--rounds` times per language (3 by default). The rounds are
+interleaved and flip the ymirc/gyc order each time, so a drift in the machine hits both compilers
+alike.
+
+Single-threaded benchmarks are pinned to the fastest CPU but cpu0 (`--cpu N` picks one, `--no-pin`
+turns it off). A benchmark whose round medians differ by more than 25% for a compiled language is
+marked noisy and left out of the summary. On a power-saving profile, tight loops can run 3× slower
+from one run to the next. The report flags that setting, and `powerprofilesctl set performance`
+before a run gives numbers worth comparing.
+
+The results land in `build/bench/results.json` and `build/bench/report.html`. The report has
+the speedup of ymirc over the other gyc, each language against C++, and every median with its
+p25–p75 range. The logs of failed builds are in `build/bench/logs/`.
+
 ## Releasing
 
 ```sh
@@ -60,6 +87,35 @@ bootstrap pull request, and stops there: merge it, then run `prepare-release` ag
 change is on bootstrap's default branch. It works in fresh clones under `/tmp`, so it does not use
 `repos/` or any other checkout. It needs `gh` authenticated. `--dry-run` prints the commits and
 pushes nothing.
+
+### Release workflow
+
+gyc `<v>` is released from the heads of bootstrap's and gymir's default branches, and bundles a
+new midgard, the next minor of yruntime's last tag:
+
+1. **Tickets.** In Plane, one `Prepare <v>` work item per repository that gets a branch: `GYC-*`
+   (gymir) and `MID-*` (yruntime). Add a `YMI-*` (bootstrap) when bootstrap's `YMIR_VERSION`
+   changes, and a `BUILD-*` (CD_suite) when prepare-release has chain stages to add. The branches
+   and pull request titles are named after these keys.
+2. **Bootstrap.** Its default branch declares `<v>` (`gyllir.toml`'s `version`) and the toolchain
+   that compiles it (`YMIR_VERSION`: the last gyc of the previous minor, and the midgard it
+   compiles against). To change the toolchain, run `prepare-release`, edit `YMIR_VERSION` when
+   asked, and merge the `YMI-*` pull request it opens.
+3. **Tag bootstrap.** Dispatch bootstrap's *Release* workflow on its default branch. It tags `<v>`
+   and publishes `libymirc`. gymir's release checks this tag out and fails without it.
+4. **`uv run prepare-release`.** It opens:
+   - yruntime `MID-*-compile-from-<major.minor>`: `YMIR_BOOTSTRAP_VERSION=<v>`, and the midgard
+     version bumped to the next minor;
+   - gymir `GYC-*-prepare-<v>`: `YMIR_VERSION` restating bootstrap's, with `MIDGARD_BRANCH` on the
+     yruntime branch;
+   - CD_suite: the stages of the released gyc it does not list yet. The gyc being prepared is not
+     released yet, so its stage comes with the next release.
+5. **Midgard.** Whatever the new gyc requires of the std goes on the yruntime branch. Leave its
+   pull request open: the release merges it.
+6. **Merge gymir's pull request**, then dispatch gymir's *Release* workflow. It builds gyc from the
+   bootstrap tag, bundles the head of `MIDGARD_BRANCH`, and publishes the `.deb`. Then it
+   dispatches yruntime's release, which builds midgard with that gyc, tags its version, and merges
+   the yruntime pull request.
 
 ## Existing checkouts
 
@@ -86,6 +142,8 @@ are incremental.
 | `build/gcc` | the GCC build dir |
 | `tests/` | the execution tests of `uv run tests` |
 | `build/tests` | the runs of the failing tests |
+| `bench/` | the benchmarks of `uv run bench`, in Ymir, C++ and Python |
+| `build/bench` | their binaries, `results.json`, `report.html`, and any release gyc `--gyc` fetched |
 | `target/` | the preview install: `bin/gyc`, `libexec/.../ymir1`, `include/ymir/<v>`, `lib/libgymidgard-*_<v>.a` |
 | `logs/` | configure, make, install, midgard build logs |
 

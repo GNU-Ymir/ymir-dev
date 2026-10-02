@@ -1,0 +1,33 @@
+in __lib__;
+
+use std::io;
+use std::time::instant;
+
+fn runBench(work: dg ()-> void) {
+    let mut i = 0u32;
+    while i < 2u32 { work(); i += 1u32; }
+
+    i = 0u32;
+    while i < 21u32 {
+        let start = Instant::now();
+        work();
+        let end = Instant::now();
+        println (cast!f64((end - start).allMicros) / 1000.0);
+        i += 1u32;
+    }
+}
+
+fn fib(n: i64)-> i64 {
+    if (n < 2) { n }
+    else { fib(n - 1) + fib(n - 2) }
+}
+
+fn main () {
+    let dmut sink = copy [0i64];
+
+    let f : dg ()-> void = copy || => {
+        sink[0] = fib(27);
+    };
+
+    runBench(f);
+}

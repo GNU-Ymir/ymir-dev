@@ -1,0 +1,39 @@
+use std::{io, stream, conv};
+
+record Point {
+    let x : i32;
+    let y : i32;
+    pub self (x : i32, y : i32) with x = x, y = y {}
+    impl Streamable;
+}
+
+record Label {
+    let text : [c8];
+    pub self (text : [c8]) with text = text {}
+    impl Streamable {
+        pub over toStream (self, dmut stream : &StringStream) {
+            stream:.write ('"', self.text, '"');
+        }
+    }
+}
+
+union Item
+| Point
+| Label;
+
+fn main () {
+    let a : Item = Point (1, 2);
+    let b : Item = Label ("hi");
+    let c : Item = Point (3, 4);
+    let items = [a, b, c];
+    for i in items {
+        println (i);
+    }
+
+    println (items);
+    println (items[1].to![c8] ().len);
+
+    let dmut s = copy StringStream ();
+    s:.write (items[0], " | ", items[1]);
+    println (s[]);
+}
