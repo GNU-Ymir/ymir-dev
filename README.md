@@ -3,7 +3,7 @@
 Builds a preview gyc from the dev gymir, bootstrap and midgard, and compiles with it.
 
 ```sh
-uv run start      # clone gymir, bootstrap, midgard (yruntime), ymir-lsp and gcc into repos/,
+uv run start      # clone gymir, bootstrap, midgard (yruntime), ymir-lsp, gyllir and gcc into repos/,
                   # install the gyc + gyllir that bootstrap's YMIR_VERSION pins into toolchain/
 uv run preview    # build gyc from them into target/, midgard included
 uv run exec main.yr -o main   # target/bin/gyc -iprefix target <args>

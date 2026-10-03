@@ -18,6 +18,7 @@ REMOTES = {
     "bootstrap": "https://github.com/GNU-Ymir/bootstrap.git",
     "midgard": "https://github.com/GNU-Ymir/yruntime.git",
     "ymir-lsp": "git@github.com:GNU-Ymir/ymir-lsp.git",
+    "gyllir": "https://github.com/GNU-Ymir/Gyllir.git",
 }
 GCC_REMOTE = "git://gcc.gnu.org/git/gcc.git"
 
