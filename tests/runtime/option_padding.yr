@@ -1,0 +1,31 @@
+use std::io;
+
+class B {
+    let mut _r: (&B)?;
+    pub self () with _r = none {}
+}
+
+extern (C) fn _yrt_unsafe_cast (x: &B)-> *usize;
+
+/**
+ * Leaves the stack filled with words looking like pointers
+ */
+fn dirty (n: i32, x: usize)-> usize {
+    let a = x | 1us;
+    let b = x | 2us;
+    let c = x | 3us;
+    let d = x | 4us;
+    if (n == 0) return a + b + c + d;
+    dirty (n - 1, x) + a + b + c + d
+}
+
+fn main () {
+    dirty (200, 0xdeadbeef0000us);
+    let b = copy B ();
+
+    // the word of the tag of _r, after the vtable and the monitor
+    let words = _yrt_unsafe_cast (b);
+    unsafe {
+        println ("tag word: ", words [2]);
+    }
+}
