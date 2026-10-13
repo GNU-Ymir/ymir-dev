@@ -1,0 +1,54 @@
+/**
+ * The structure for all events in SDL.
+ *
+ * The SDL_Event structure is the core of all event handling in SDL. SDL_Event is a union of all event structures
+ * used in SDL.
+ */
+@overlaid
+pub record SDL_Event {
+    pub let mut type: u32 = 0; /**< Event type, shared with all events, Uint32 to cover user events which are not in the SDL_EventType enumeration */
+    pub let mut common: SDL_CommonEvent = SDL_CommonEvent(); /**< Common event data */
+    pub let mut display: SDL_DisplayEvent = SDL_DisplayEvent(); /**< Display event data */
+    pub let mut window: SDL_WindowEvent = SDL_WindowEvent(); /**< Window event data */
+    pub let mut kdevice: SDL_KeyboardDeviceEvent = SDL_KeyboardDeviceEvent(); /**< Keyboard device change event data */
+    pub let mut key: SDL_KeyboardEvent = SDL_KeyboardEvent(); /**< Keyboard event data */
+    pub let mut edit: SDL_TextEditingEvent = SDL_TextEditingEvent(); /**< Text editing event data */
+    pub let mut edit_candidates: SDL_TextEditingCandidatesEvent = SDL_TextEditingCandidatesEvent(); /**< Text editing candidates event data */
+    pub let mut text: SDL_TextInputEvent = SDL_TextInputEvent(); /**< Text input event data */
+    pub let mut mdevice: SDL_MouseDeviceEvent = SDL_MouseDeviceEvent(); /**< Mouse device change event data */
+    pub let mut motion: SDL_MouseMotionEvent = SDL_MouseMotionEvent(); /**< Mouse motion event data */
+    pub let mut button: SDL_MouseButtonEvent = SDL_MouseButtonEvent(); /**< Mouse button event data */
+    pub let mut wheel: SDL_MouseWheelEvent = SDL_MouseWheelEvent(); /**< Mouse wheel event data */
+    pub let mut jdevice: SDL_JoyDeviceEvent = SDL_JoyDeviceEvent(); /**< Joystick device change event data */
+    pub let mut jaxis: SDL_JoyAxisEvent = SDL_JoyAxisEvent(); /**< Joystick axis event data */
+    pub let mut jball: SDL_JoyBallEvent = SDL_JoyBallEvent(); /**< Joystick ball event data */
+    pub let mut jhat: SDL_JoyHatEvent = SDL_JoyHatEvent(); /**< Joystick hat event data */
+    pub let mut jbutton: SDL_JoyButtonEvent = SDL_JoyButtonEvent(); /**< Joystick button event data */
+    pub let mut jbattery: SDL_JoyBatteryEvent = SDL_JoyBatteryEvent(); /**< Joystick battery event data */
+    pub let mut gdevice: SDL_GamepadDeviceEvent = SDL_GamepadDeviceEvent(); /**< Gamepad device event data */
+    pub let mut gaxis: SDL_GamepadAxisEvent = SDL_GamepadAxisEvent(); /**< Gamepad axis event data */
+    pub let mut gbutton: SDL_GamepadButtonEvent = SDL_GamepadButtonEvent(); /**< Gamepad button event data */
+    pub let mut gtouchpad: SDL_GamepadTouchpadEvent = SDL_GamepadTouchpadEvent(); /**< Gamepad touchpad event data */
+    pub let mut gsensor: SDL_GamepadSensorEvent = SDL_GamepadSensorEvent(); /**< Gamepad sensor event data */
+    pub let mut adevice: SDL_AudioDeviceEvent = SDL_AudioDeviceEvent(); /**< Audio device event data */
+    pub let mut cdevice: SDL_CameraDeviceEvent = SDL_CameraDeviceEvent(); /**< Camera device event data */
+    pub let mut sensor: SDL_SensorEvent = SDL_SensorEvent(); /**< Sensor event data */
+    pub let mut quit: SDL_QuitEvent = SDL_QuitEvent(); /**< Quit request event data */
+    pub let mut user: SDL_UserEvent = SDL_UserEvent(); /**< Custom event data */
+    pub let mut tfinger: SDL_TouchFingerEvent = SDL_TouchFingerEvent(); /**< Touch finger event data */
+    pub let mut pinch: SDL_PinchFingerEvent = SDL_PinchFingerEvent(); /**< Pinch event data */
+    pub let mut pproximity: SDL_PenProximityEvent = SDL_PenProximityEvent(); /**< Pen proximity event data */
+    pub let mut ptouch: SDL_PenTouchEvent = SDL_PenTouchEvent(); /**< Pen tip touching event data */
+    pub let mut pmotion: SDL_PenMotionEvent = SDL_PenMotionEvent(); /**< Pen motion event data */
+    pub let mut pbutton: SDL_PenButtonEvent = SDL_PenButtonEvent(); /**< Pen button event data */
+    pub let mut paxis: SDL_PenAxisEvent = SDL_PenAxisEvent(); /**< Pen axis event data */
+    pub let mut render: SDL_RenderEvent = SDL_RenderEvent(); /**< Render event data */
+    pub let mut drop: SDL_DropEvent = SDL_DropEvent(); /**< Drag and drop event data */
+    pub let mut clipboard: SDL_ClipboardEvent = SDL_ClipboardEvent(); /**< Clipboard event data */
+
+    /* Padding to the size the C union has on every architecture, 128 bytes */
+    pub let mut padding: [u8; 128u32] = [0u8; 128u32];
+
+    pub self () {}
+}
+
