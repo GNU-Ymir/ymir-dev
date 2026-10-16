@@ -1,0 +1,50 @@
+use std::io;
+
+yield count (n : i32)-> i32 {
+    for i in 0 .. n {
+        yield i;
+    }
+}
+
+yield twice (n : i32)-> i32 {
+    yield in count (n);
+    yield in count (n + 1);
+}
+
+// reads a local of its frame through a pointer taken before the first yield
+yield pointed (n : i32)-> i32 {
+    let mut x = n;
+    let p = &x;
+    for _ in 0 .. 3 {
+        yield unsafe { *p };
+        x += 1;
+    }
+}
+
+yield chain (n : i32)-> i32 {
+    yield in twice (n);
+    yield in pointed (n);
+}
+
+fn main () {
+    for j in 0 .. 4 {
+        for i in count (j) { print (i, " "); }
+        println ("|");
+    }
+
+    for i in twice (2) { print (i, " "); }
+    println ();
+
+    for i in pointed (10) { print (i, " "); }
+    println ();
+
+    for i in chain (1) { print (i, " "); }
+    println ();
+
+    for i in count (3) {
+        for k in count (i + 1) { print (i, ":", k, " "); }
+    }
+    println ();
+
+    println (copy [i * 2 for i in twice (1)]);
+}

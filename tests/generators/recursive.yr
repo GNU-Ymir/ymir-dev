@@ -1,0 +1,51 @@
+use std::io;
+
+class Node {
+    pub let value : i32;
+    pub let children : [&Node];
+    pub self (value : i32, children : [&Node] = []) with value = value, children = children {}
+}
+
+yield walk (n : &Node)-> i32 {
+    yield n.value;
+    for c in n.children {
+        yield in walk (c);
+    }
+}
+
+yield down (n : i32)-> i32 {
+    if n > 0 {
+        yield n;
+        for i in down (n - 1) { yield i; }
+    }
+}
+
+yield even (n : i32)-> i32 {
+    if n > 0 {
+        yield n * 10;
+        yield in odd (n - 1);
+    }
+}
+
+yield odd (n : i32)-> i32 {
+    if n > 0 {
+        yield n;
+        yield in even (n - 1);
+    }
+}
+
+fn main () {
+    let tree = copy Node (1, children-> copy [copy Node (2, children-> copy [copy Node (3), copy Node (4)]),
+                                              copy Node (5, children-> copy [copy Node (6)])]);
+    for v in walk (tree) { print (v, " "); }
+    println ();
+
+    for v in down (5) { print (v, " "); }
+    println ();
+
+    for v in even (6) { print (v, " "); }
+    println ();
+
+    for v in odd (5) { print (v, " "); }
+    println ();
+}
