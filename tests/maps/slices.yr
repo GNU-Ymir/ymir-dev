@@ -16,7 +16,7 @@ fn main () {
     println (tail (s), " ", s [2], " ", s [1 .. 2]);
     println ([i32 => i32]::size);
 
-    let dmut rs = copy [R (copy [1 => 10], 1), R (copy [2 => 20], 2), R (copy [3 => 30], 3)];
+    let rs = copy [R (copy [1 => 10], 1), R (copy [2 => 20], 2), R (copy [3 => 30], 3)];
     for r in rs [1 .. $] {
         println (r.tag, " ", r.m);
     }

@@ -10,7 +10,7 @@ fn fromArg (a : [i32 => i32]) {
 fn main () {
     let a = copy [1 => 2];
     let e = [a, a];
-    let dmut f = dcopy e;
+    let f = dcopy e;
     println (f);
 
     let dmut g = dcopy [copy [1 => 2] ; 2];
