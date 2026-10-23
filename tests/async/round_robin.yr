@@ -1,0 +1,49 @@
+use std::io;
+
+class Wakes {
+    pub let mut count : i32 = 0;
+    pub self () {}
+    pub fn wake (mut self) { self.count += 1; }
+}
+
+async worker (name : [c8], steps : i32)-> i32 {
+    for i in 0 .. steps {
+        println (name, " step ", i);
+        await;
+    }
+    steps * 10
+}
+
+async ticker (steps : i32) {
+    for i in 0 .. steps {
+        println ("ticker ", i);
+        await;
+    }
+}
+
+fn main () {
+    let dmut wakes = copy Wakes ();
+    let a = worker ("a", 3);
+    let t = ticker (2);
+
+    let mut aDone = false;
+    let mut tDone = false;
+    let mut rounds = 0;
+    while !aDone || !tDone {
+        if !aDone {
+            if let Ok (r) = a.poll (&wakes:.wake) {
+                println ("a completed with ", r);
+                aDone = true;
+            }
+        }
+        if !tDone {
+            if let Ok () = t.poll (&wakes:.wake) {
+                println ("ticker completed");
+                tDone = true;
+            }
+        }
+        rounds += 1;
+    }
+
+    println (rounds, " rounds, ", wakes.count, " wakes");
+}
