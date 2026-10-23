@@ -1,0 +1,49 @@
+use std::io;
+use std::time::dur;
+
+class Wakes {
+    pub let mut count : i32 = 0;
+    pub self () {}
+    pub fn wake (mut self) { self.count += 1; }
+}
+
+fn slow (x : i32)-> i32 {
+    sleep (dur::millis (50u64));
+    x * 2
+}
+
+fn slowVoid () {
+    sleep (dur::millis (50u64));
+    println ("thread done");
+}
+
+async compute (x : i32)-> i32 {
+    let f = spawn slow (x);
+    let r = await f;
+    r + 1
+}
+
+async finish ()-> i32 {
+    let f = spawn slowVoid ();
+    await f;
+    7
+}
+
+fn main () {
+    println ("run completed with ", compute (20).run ());
+    println ("run completed with ", finish ().run ());
+
+    let dmut wakes = copy Wakes ();
+    let h = compute (10);
+    if let Ok (r) = h.poll (&wakes:.wake) {
+        println ("ready too early with ", r);
+    } else {
+        println ("pending, ", wakes.count, " wakes");
+    }
+
+    sleep (dur::millis (500u64));
+    println ("thread finished, ", wakes.count, " wakes");
+    if let Ok (r) = h.poll (&wakes:.wake) {
+        println ("poll completed with ", r);
+    }
+}
