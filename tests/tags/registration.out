@@ -1,0 +1,14 @@
+main starts with 3 routes and 2 handlers
+route /b
+route /a
+handler /users
+route /c
+logged
+handler /posts
+/b -> 2
+/a -> 1
+logged call
+/c -> 3
+[/users, /posts]
+logged call
+3

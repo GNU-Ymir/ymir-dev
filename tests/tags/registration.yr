@@ -1,0 +1,70 @@
+use std::io;
+
+lazy mut ROUTES: [([c8], fn ()-> i32)] = [];
+
+lazy mut HANDLERS: [[c8]] = [];
+
+lazy mut ORDER: [[c8]] = [];
+
+tag route (path: [c8]) {
+    pub self {F: fn ()-> i32} () {
+        ROUTES = ROUTES ~ [(path, F)];
+        ORDER = ORDER ~ ["route " ~ path];
+    }
+}
+
+tag handler (path: [c8]) {
+    pub class apply {class C} {
+        pub fn route (self)-> [c8] { path }
+    }
+
+    pub self {class C} () {
+        HANDLERS = HANDLERS ~ [(copy C ()).route ()];
+        ORDER = ORDER ~ ["handler " ~ path];
+    }
+}
+
+tag logged {
+    pub fn apply {F: fn ()-> i32} ()-> i32 {
+        println ("logged call");
+        F ()
+    }
+
+    pub self () {
+        ORDER = ORDER ~ ["logged"];
+    }
+}
+
+fn main () {
+    println ("main starts with ", ROUTES.len, " routes and ", HANDLERS.len, " handlers");
+    for o in ORDER {
+        println (o);
+    }
+
+    for r in ROUTES {
+        let (p, f) = r;
+        println (p, " -> ", f ());
+    }
+
+    println (HANDLERS);
+    println (c ());
+}
+
+#[route ("/b")]
+fn b ()-> i32 { 2 }
+
+#[route ("/a")]
+fn a ()-> i32 { 1 }
+
+#[handler ("/users")]
+class Users {
+    pub self () {}
+}
+
+#[route ("/c"), logged]
+fn c ()-> i32 { 3 }
+
+#[handler ("/posts")]
+class Posts {
+    pub self () {}
+}
