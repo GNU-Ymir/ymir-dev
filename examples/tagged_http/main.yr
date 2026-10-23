@@ -1,0 +1,81 @@
+/**
+ * A small HTTP server whose routes are declared with tags.
+ *
+ * `#[get ("/path")]` and `#[post ("/path")]` register the function they tag
+ * into ROUTES before main starts, and `#[logged]` wraps it with a log line.
+ * main only hands the registered routes to the server.
+ * */
+
+use std::log;
+use std::net::http;
+use std::net::addr::_;
+use std::fs::path;
+use std::conv::_;
+
+def Handler: fn (HttpRequest)-> HttpResponse;
+
+lazy mut ROUTES: [([c8], u32, Handler)] = [];
+
+lazy __LOG__ = Logger("tagged_http");
+
+tag get(path: [c8]) {
+    pub self { F: fn (HttpRequest)-> HttpResponse } () {
+        ROUTES = ROUTES ~ [(path, HttpRequestKind::GET, F)];
+    }
+}
+
+tag post(path: [c8]) {
+    pub self { F: fn (HttpRequest)-> HttpResponse } () {
+        ROUTES = ROUTES ~ [(path, HttpRequestKind::POST, F)];
+    }
+}
+
+tag logged {
+    pub fn apply { F: fn (HttpRequest)-> HttpResponse } (rqt: HttpRequest)-> HttpResponse {
+        let resp = F(rqt);
+        __LOG__.info(methodName(rqt.method), " ", rqt.url.toStr(), " -> ", resp.code);
+        resp
+    }
+}
+
+fn methodName(m: u32)-> [c8] {
+    if (m == HttpRequestKind::POST) { "POST" } else { "GET" }
+}
+
+#[get ("/"), logged]
+fn home(_: HttpRequest)-> HttpResponse {
+    HttpResponse(200u32, body-> "Hello from a tagged route\n")
+}
+
+#[get ("/routes"), logged]
+fn routes(_: HttpRequest)-> HttpResponse {
+    let mut body = "";
+    for r in ROUTES {
+        let (p, m, _) = r;
+        body = body ~ methodName(m) ~ " " ~ p ~ "\n";
+    }
+
+    HttpResponse(200u32, body-> body)
+}
+
+#[post ("/echo"), logged]
+fn echo(rqt: HttpRequest)-> HttpResponse {
+    HttpResponse(200u32, body-> rqt.body)
+}
+
+fn main(args: [[c8]]) {
+    let port = if (args.len > 1us) { args[1].to!{u16} () } else { 8080u16 };
+
+    let dmut server = copy HttpServer(SockAddr(("127.0.0.1"s8).to!{&IpAddr} (), port));
+    for r in ROUTES {
+        let (p, m, f) = r;
+        server:.route(Path(p), f, method-> m);
+        __LOG__.info("route ", p);
+    }
+
+    server:.start();
+    server:.join();
+} catch {
+    err: &HttpError => __LOG__.error(err);
+    err: &CastFailure => __LOG__.error(err);
+}
