@@ -1,0 +1,48 @@
+use std::io;
+
+tag traced {
+    pub fn apply {F: fn (i32)-> i64} (n: i32)-> i64 {
+        println ("fib ", n);
+        F (n)
+    }
+}
+
+#[traced]
+fn fib (n: i32)-> i64 {
+    if (n < 2) {
+        cast!i64 (n)
+    } else {
+        fib (n - 1) + fib (n - 2)
+    }
+}
+
+tag offset (by: i32) {
+    pub fn apply {F: fn (i32)-> i32} (x: i32, y: i32)-> i32 {
+        F (x) + y + by
+    }
+}
+
+#[offset (10)]
+fn twice (x: i32)-> i32 { x * 2 }
+
+tag inner {
+    pub fn apply {F: fn (i32)-> i32} (x: i32, y: i32)-> i32 {
+        F (x) + y
+    }
+}
+
+tag outer {
+    pub fn apply {F: fn (i32, i32)-> i32} (x: i32)-> i32 {
+        F (x, x) * 2
+    }
+}
+
+#[outer, inner]
+fn stacked (x: i32)-> i32 { x }
+
+fn main () {
+    println (fib (4));
+    println (twice (1, 2));
+    println (__pragma!untagged (twice) (5));
+    println (stacked (3));
+}
