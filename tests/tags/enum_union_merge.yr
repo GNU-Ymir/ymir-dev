@@ -1,0 +1,67 @@
+use std::io;
+
+tag counted (step: i32) {
+    pub enum apply {enum E}
+    | COUNT = cast!{i32} (E::__members__.len)
+    | NEXT = COUNT + step;
+}
+
+#[counted (10)]
+enum Color
+| RED = 0
+| GREEN = 1;
+
+record Circle {
+    pub let r: i32;
+
+    pub self (r: i32) with r = r {}
+
+    pub fn area (self)-> i32 { 3 * self.r * self.r }
+}
+
+record Square {
+    pub let side: i32;
+
+    pub self (side: i32) with side = side {}
+
+    pub fn area (self)-> i32 { self.side * self.side }
+}
+
+record Empty {
+    pub self () {}
+
+    pub fn area (self)-> i32 { 0 }
+}
+
+tag emptied {
+    pub union apply {union U}
+    | Empty;
+}
+
+#[emptied]
+union Shape
+| Circle
+| Square;
+
+fn name (s: Shape)-> [c8] {
+    match s {
+        _: Circle => { "circle" }
+        _: Square => { "square" }
+        _: Empty  => { "empty" }
+    }
+}
+
+fn main () {
+    for c in Color::__members__ {
+        println (c);
+    }
+
+    println (Color::__names__);
+
+    let circle: Shape = Circle (2);
+    let square: Shape = Square (3);
+    let empty: Shape = Empty ();
+    for s in [circle, square, empty] {
+        println (name (s), " ", s.area (), " ", s.typeid);
+    }
+}

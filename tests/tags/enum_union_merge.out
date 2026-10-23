@@ -1,0 +1,8 @@
+0
+1
+2
+12
+[RED, GREEN, COUNT, NEXT]
+circle 12 enum_union_merge::Circle
+square 9 enum_union_merge::Square
+empty 0 enum_union_merge::Empty
