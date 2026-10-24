@@ -1,0 +1,75 @@
+use std::io;
+use std::time::dur;
+
+class Countdown {
+    let mut _n : i32;
+    pub let mut polls : i32 = 0;
+
+    pub self (n : i32) with _n = n {}
+
+    pub fn poll (mut self, waker : dg ()-> void)-> i32? {
+        self.polls += 1;
+        if self._n == 0 {
+            return (42)?;
+        }
+
+        self._n -= 1;
+        waker ();
+        none
+    }
+}
+
+class Timer {
+    let _delay : u64;
+    let mut _done : bool = false;
+    let mut _started : bool = false;
+    pub let mut polls : i32 = 0;
+
+    pub self (delay : u64) with _delay = delay {}
+
+    pub fn ring (mut self, waker : dg ()-> void) {
+        sleep (dur::millis (self._delay));
+        atomic self {
+            self._done = true;
+        }
+        println ("timer rings");
+        waker ();
+    }
+
+    pub fn poll (mut self, waker : dg ()-> void)-> i32? {
+        self.polls += 1;
+        let mut done = false;
+        atomic self {
+            done = self._done;
+        }
+
+        if done {
+            return (cast!i32 (self._delay))?;
+        }
+
+        if !self._started {
+            self._started = true;
+            let _ = spawn self:.ring (waker);
+        }
+        none
+    }
+}
+
+async countdown (n : i32)-> i32 {
+    let dmut c = copy Countdown (n);
+    let r = await alias c;
+    println ("countdown polled ", c.polls, " times");
+    r
+}
+
+async timed (delay : u64)-> i32 {
+    let dmut t = copy Timer (delay);
+    let r = await alias t;
+    println ("timer polled ", t.polls, " times");
+    r + 1
+}
+
+fn main () {
+    println ("countdown completed with ", countdown (3).run ());
+    println ("timer completed with ", timed (50u64).run ());
+}
