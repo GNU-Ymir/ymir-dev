@@ -1,0 +1,63 @@
+use std::io;
+
+async leaf (x : i32)-> i32 {
+    let before = x * 3;
+    await;
+    before + 1
+}
+
+async middle (x : i32)-> i32 {
+    let a = await leaf (x);
+    await;
+    a + await leaf (a)
+}
+
+async root (n : i32)-> i32 {
+    let mut s = 0;
+    for i in 0 .. n {
+        s += await middle (i);
+    }
+    s
+}
+
+async down (n : i32)-> i32 {
+    if n == 0 {
+        return 0;
+    }
+    await;
+    n + await down (n - 1)
+}
+
+async show (x : i32) {
+    await;
+    println ("show ", x);
+}
+
+async outer ()-> i32 {
+    await show (1);
+    await show (2);
+    await down (5)
+}
+
+class Wakes {
+    pub let mut count : i32 = 0;
+    pub self () {}
+    pub fn wake (mut self) { self.count += 1; }
+}
+
+fn main () {
+    println (root (4).run ());
+    println (down (10).run ());
+    println (outer ().run ());
+
+    let dmut wakes = copy Wakes ();
+    let h = root (2);
+    let mut polls = 0;
+    loop {
+        polls += 1;
+        if let Ok (r) = h.poll (&wakes:.wake) {
+            println (r, " after ", polls, " polls, ", wakes.count, " wakes");
+            break;
+        }
+    }
+}
