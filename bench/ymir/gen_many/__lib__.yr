@@ -1,0 +1,42 @@
+in __lib__;
+
+use std::io;
+use std::time::instant;
+
+fn runBench(work: dg ()-> void) {
+    let mut i = 0u32;
+    while i < 2u32 { work(); i += 1u32; }
+
+    i = 0u32;
+    while i < 21u32 {
+        let start = Instant::now();
+        work();
+        let end = Instant::now();
+        println (cast!f64((end - start).allMicros) / 1000.0);
+        i += 1u32;
+    }
+}
+
+yield small (seed: i64)-> i64 {
+    yield seed;
+    yield seed + 1i64;
+    yield seed + 2i64;
+}
+
+fn main () {
+    let dmut sink = copy [0i64];
+
+    let f : dg ()-> void = copy || => {
+        let mut total = 0i64;
+        let mut i = 0i64;
+        while i < 1000000i64 {
+            let g = small (i);
+            if let Ok (a) = g.next () { total += a; }
+            if let Ok (b) = g.next () { total += b; }
+            i += 1i64;
+        }
+        sink[0] = total;
+    };
+
+    runBench(f);
+}

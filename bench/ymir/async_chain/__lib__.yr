@@ -1,0 +1,78 @@
+in __lib__;
+
+use std::io;
+use std::time::instant;
+
+fn runBench(work: dg ()-> void) {
+    let mut i = 0u32;
+    while i < 2u32 { work(); i += 1u32; }
+
+    i = 0u32;
+    while i < 21u32 {
+        let start = Instant::now();
+        work();
+        let end = Instant::now();
+        println (cast!f64((end - start).allMicros) / 1000.0);
+        i += 1u32;
+    }
+}
+
+async a0 (x: i64)-> i64 {
+    x + 1i64
+}
+
+async a1 (x: i64)-> i64 {
+    (await a0 (x)) + 1i64
+}
+
+async a2 (x: i64)-> i64 {
+    (await a1 (x)) + 1i64
+}
+
+async a3 (x: i64)-> i64 {
+    (await a2 (x)) + 1i64
+}
+
+async a4 (x: i64)-> i64 {
+    (await a3 (x)) + 1i64
+}
+
+async a5 (x: i64)-> i64 {
+    (await a4 (x)) + 1i64
+}
+
+async a6 (x: i64)-> i64 {
+    (await a5 (x)) + 1i64
+}
+
+async a7 (x: i64)-> i64 {
+    (await a6 (x)) + 1i64
+}
+
+async a8 (x: i64)-> i64 {
+    (await a7 (x)) + 1i64
+}
+
+async a9 (x: i64)-> i64 {
+    (await a8 (x)) + 1i64
+}
+
+async a10 (x: i64)-> i64 {
+    (await a9 (x)) + 1i64
+}
+
+fn main () {
+    let dmut sink = copy [0i64];
+
+    let f : dg ()-> void = copy || => {
+        let mut total = 0i64;
+        let mut i = 0i64;
+        while i < 100000i64 {
+            total += a10 (i).run ();
+            i += 1i64;
+        }
+        sink[0] = total;
+    };
+
+    runBench(f);
+}
