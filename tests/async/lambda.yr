@@ -1,0 +1,50 @@
+use std::io;
+
+async apply (f : dg (i32)-> (async-> i32), x : i32)-> i32 {
+    await f (x)
+}
+
+fn make (base : i32)-> dg (i32)-> (async-> i32) {
+    async |x : i32| {
+        await;
+        x + base
+    }
+}
+
+async sum (n : i32)-> i32 {
+    let f = make (100);
+    let mut s = 0;
+    for i in 0 .. n {
+        s += await f (i);
+    }
+
+    s
+}
+
+fn main () {
+    let k = 2;
+    println (apply (async |x| => x * k, 21).run ());
+
+    let g = async |x : i32| => x + 1;
+    println (g (1).run ());
+    println (apply (g, 9).run ());
+
+    println (sum (3).run ());
+
+    let h = make (7);
+    let a = h (1);
+    let b = h (2);
+    println (b.run (), " ", a.run ());
+
+    let mut pendings = 0;
+    let c = h (3);
+    loop {
+        match c.poll (|| => {}) {
+            Ok (v) => {
+                println (v, " after ", pendings, " pending");
+                break;
+            }
+            _ => { pendings += 1; }
+        }
+    }
+}
