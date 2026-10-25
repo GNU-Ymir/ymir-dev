@@ -1,0 +1,79 @@
+use std::{io, pack::_};
+
+#[packable]
+record Point {
+    pub let x : i32;
+    pub let y : i32;
+    pub self (x : i32, y : i32) with x = x, y = y {}
+}
+
+#[packable]
+@abstract
+class Shape {
+    pub let origin : Point;
+    pub self (origin : Point) with origin = origin {}
+    pub fn area (self)-> i32;
+}
+
+#[packable (skip-> "draws")]
+class Square over Shape {
+    pub let side : i32;
+    let mut draws : usize = 0us;
+    pub self (side : i32) with super (Point (1, 2)), side = side {}
+    pub over area (self)-> i32 { self.side * self.side }
+    pub fn draw (mut self) { self.draws += 1us; }
+    pub fn getDraws (self)-> usize { self.draws }
+
+    pub fn unpacked (self)
+        throws UnpackError
+    {
+        if (self.side < 0) throw copy UnpackError ("negative side");
+    }
+}
+
+#[packable]
+class Node {
+    pub let value : i32;
+    pub let mut next : (&Node)? = none;
+    pub self (value : i32) with value = value {}
+}
+
+fn tryUnpack (bytes : [u8]) {
+    {
+        let s = unpack!{&Shape} (bytes);
+        println (s.__typeinfo__.name, " ", s.area (), " ", s.origin.y);
+    } catch {
+        err : &UnpackError => {
+            println ("refused: ", err.msg);
+        }
+    }
+}
+
+fn main ()
+    throws UnpackError
+{
+    let dmut sq = copy Square (3);
+    sq:.draw ();
+    let bytes = sq.pack ();
+    tryUnpack (bytes);
+    tryUnpack (pack (copy Square (-1)));
+    tryUnpack (bytes[0us .. bytes.len - 1us]);
+
+    if let back : &Square = unpack!{&Shape} (bytes) {
+        println (back.getDraws ());
+    }
+
+    let dmut a = copy Node (1);
+    let dmut b = copy Node (2);
+    a.next = (alias b)?;
+    b.next = (alias a)?;
+    let n = unpack!{&Node} (pack (a));
+    if let Ok (m) = n.next {
+        if let Ok (k) = m.next {
+            println (m.value, " ", k is n);
+        }
+    }
+
+    let (s, l) = unpack!{([c8], [i32])} (pack (("hi", copy [1, 2])));
+    println (s, " ", l);
+}

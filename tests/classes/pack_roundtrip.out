@@ -1,0 +1,6 @@
+pack_roundtrip::Square 9 2
+refused: negative side
+refused: the packet ends
+0
+2 true
+hi [1, 2]
