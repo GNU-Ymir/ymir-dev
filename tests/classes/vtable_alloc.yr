@@ -1,0 +1,57 @@
+use std::io;
+
+mod Alloc {T} {
+    pub extern (C) fn _yrt_alloc_class (vtable: *void)-> dmut T;
+}
+
+class Shape {
+    pub let mut w : i32 = 0;
+    pub self () {}
+    pub fn area (self)-> i32 { 0 }
+    pub fn name (self)-> [c8] { "shape" }
+}
+
+class Rect over Shape {
+    pub let mut h : i32 = 0;
+    pub self () {}
+    pub over area (self)-> i32 { self.w * self.h }
+    pub over name (self)-> [c8] { "rect" }
+}
+
+lazy mut REGISTRY : [*void] = [];
+
+tag registered {
+    pub self {class C} () {
+        REGISTRY ~= [__pragma!vtable (C)];
+    }
+}
+
+#[registered]
+class Square over Rect {
+    pub self () {}
+    pub over name (self)-> [c8] { "square" }
+}
+
+fn allocate {class C} ()-> dmut C {
+    Alloc!{dmut C}::_yrt_alloc_class (__pragma!vtable (C))
+}
+
+fn main () {
+    let dmut r = allocate!{&Rect} ();
+    r.w = 2;
+    r.h = 3;
+
+    let s : &Shape = r;
+    println (s.name (), " ", s.area ());
+
+    let dmut sh = allocate!{&Shape} ();
+    sh.w = 4;
+    println (sh.name (), " ", sh.area ());
+
+    for vt in REGISTRY {
+        let dmut q = Alloc!{dmut &Square}::_yrt_alloc_class (vt);
+        q.w = 5;
+        q.h = 5;
+        println (q.name (), " ", q.area (), " ", vt == __pragma!vtable (&Square));
+    }
+}
