@@ -2,13 +2,15 @@
 
 The chain holds one stage per minor, its last patch, since 1.N.* compiles from the last 1.(N-1).*:
 a newer patch of the last stage's minor replaces it, and each newer minor is appended. The midgard
-each stage bundles and the gyllir it builds are asked on the terminal. Edits utils/versions.py and
-config.yaml in place, and returns the name of each stage written.
+each stage bundles, the one its ymir1 links when the previous gyc does not carry it, and the gyllir
+it builds are asked on the terminal. Edits utils/versions.py and config.yaml in place, and returns
+the name of each stage written.
 """
 
 import re
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
@@ -58,14 +60,40 @@ def ubuntu_name(versions, value: str) -> str:
     return names[-1] if names else f'"{value}"'
 
 
-def render(name: str, comments: list[str], prev_gyc: str, prev_gyllir: str, v, ubuntu: str, gyllir: str) -> str:
+def minor(version: str) -> str:
+    return ".".join(version.split(".")[:2])
+
+
+def comment(text: str) -> list[str]:
+    return textwrap.wrap(text, width=100, initial_indent="        # ", subsequent_indent="        # ")
+
+
+def describe(v, ubuntu_version: str, pinned: str, prev_gyc: str, carried: str) -> list[str]:
+    """The comment heading a stage: its toolchain, and the std its ymir1 links, pinned by the
+    bootstrap source, against the midgard carried by the previous gyc's .deb."""
+    both = "both " if v.compiler_major == v.target_major else ""
+    text = f"target gcc-{v.target_major}, compiled with gcc-{v.compiler_major}, {both}on ubuntu {ubuntu_version}."
+    prev = prev_gyc.split("_")[-1]
+    if v.bootstrap_midgard:
+        text += (f" bootstrap {v.bootstrap} pins std {v.bootstrap_midgard}, which ymir1 links, but gyc {prev}'s"
+                 f" .deb only carries midgard {minor(carried)} - so {v.bootstrap_midgard} is built with it first"
+                 " (see GycVersions.bootstrap_midgard).")
+    elif pinned:
+        text += (f" bootstrap {v.bootstrap} pins std {pinned}, which ymir1 links and gyc {prev}'s .deb already"
+                 " bundles - nothing to build first.")
+    return comment(text)
+
+
+def render(name: str, comments: list[str], prev_gyc: str, prev_gyllir: str, v, ubuntu: str, gyllir: str,
+           trailer: list[str]) -> str:
+    linked = f', bootstrap_midgard="{v.bootstrap_midgard}"' if v.bootstrap_midgard else ""
     lines = [
         f'    "{name}": BootstrapStage (',
         *comments,
         f'        prev_gyc="{prev_gyc}",',
         f'        prev_gyllir="{prev_gyllir}",',
         f'        versions=GycVersions (compiler="{v.compiler}", target="{v.target}", ymir="{v.ymir}", '
-        f'bootstrap="{v.bootstrap}", midgard="{v.midgard}"),',
+        f'bootstrap="{v.bootstrap}", midgard="{v.midgard}"{linked}),',
         f"        ubuntu_version={ubuntu},",
     ]
     if gyllir:
@@ -73,6 +101,7 @@ def render(name: str, comments: list[str], prev_gyc: str, prev_gyllir: str, v, u
             f'        gyllir=GyllirSpec(gyc="{v.target_major}_{v.bootstrap}", compile_with="{v.target_major}", '
             f'gyllir_version="{gyllir}", ubuntu_version={ubuntu}, prev_gyllir="{prev_gyllir}"),'
         )
+    lines += trailer
     lines.append("    ),")
     return "\n".join(lines) + "\n"
 
@@ -98,8 +127,9 @@ def add_stages(deb: Path, gymir: Path, yruntime: Path, gyllirs: list[str], tty) 
 
     replaced = newest.pop(key(last.versions.bootstrap)[:2], None)
     chain = ([replaced] if replaced else []) + [newest[minor] for minor in sorted(newest)]
-    produced_gyllir = [
-        s.gyllir.gyllir_version
+    names = list(V.STAGES)
+    producer, produced_gyllir = [
+        (n, s.gyllir.gyllir_version)
         for n, s in V.STAGES.items()
         if s.gyllir is not None and not (replaced and n == last_name)
     ][-1]
@@ -108,7 +138,6 @@ def add_stages(deb: Path, gymir: Path, yruntime: Path, gyllirs: list[str], tty) 
     config = Path(deb, "config.yaml")
     text = versions_py.read_text()
     base_block = block(text, last_name)
-    comments = re.findall(r"^        #.*$", base_block.split("prev_gyc=")[0], re.M)
     ubuntu = ubuntu_name(V, last.ubuntu_version)
     appended: list[tuple[str, str]] = []
     base = last
@@ -116,26 +145,33 @@ def add_stages(deb: Path, gymir: Path, yruntime: Path, gyllirs: list[str], tty) 
     for i, gyc in enumerate(chain):
         if gyc == replaced:
             prev_gyc, prev_gyllir = last.prev_gyc, last.prev_gyllir
+            carried = V.STAGES[names[-2]].versions.midgard
         else:
             prev_gyc = f"{base.versions.target_major}_{base.versions.bootstrap}"
             prev_gyllir = produced_gyllir
+            carried = base.versions.midgard
 
         midgard = ask(tty, f"CD_suite: midgard bundled by gyc {gyc}", bundled_midgard(gymir, yruntime, gyc))
+        pinned = setting(gymir, gyc, "YMIR_BOOTSTRAP_MIDGARD_VERSION") or ""
+        linked = ask(tty, f"CD_suite: midgard ymir1 of gyc {gyc} links, built first (empty for none)",
+                     pinned if pinned and minor(pinned) != minor(carried) else "")
         newer = [g for g in gyllirs if not SEMVER.match(produced_gyllir) or key(g) > key(produced_gyllir)]
         default = newer[-1] if newer and i == len(chain) - 1 else ""
         gyllir = ask(tty, f"CD_suite: gyllir built with gyc {gyc} (empty for none)", default)
 
         v = V.GycVersions(compiler=base.versions.compiler, target=base.versions.target,
-                          ymir=gyc, bootstrap=gyc, midgard=midgard)
+                          ymir=gyc, bootstrap=gyc, midgard=midgard, bootstrap_midgard=linked or None)
         name = f"bootstrap_v{gyc}"
-        rendered = render(name, comments, prev_gyc, prev_gyllir, v, ubuntu, gyllir)
+        trailer = [] if gyllir or newer else comment(f"No gyllir release after {produced_gyllir} (already built by {producer}).")
+        rendered = render(name, describe(v, last.ubuntu_version, pinned, prev_gyc, carried),
+                          prev_gyc, prev_gyllir, v, ubuntu, gyllir, trailer)
         if gyc == replaced:
             text = text.replace(base_block, rendered)
         else:
             appended.append((name, rendered))
 
         if gyllir:
-            produced_gyllir = gyllir
+            producer, produced_gyllir = name, gyllir
         base = V.BootstrapStage(prev_gyc=prev_gyc, prev_gyllir=prev_gyllir, versions=v,
                                 ubuntu_version=last.ubuntu_version)
 
