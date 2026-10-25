@@ -1,0 +1,12 @@
+accepted pack_signed::Buy #1: buy 10
+refused: 20 at 9, packet 1 was already received
+refused: 19 at 64, the tag does not match the packet
+refused: 19 at 64, the tag does not match the packet
+refused: 16 at 4, the packet is not authenticated
+refused: 16 at 4, the packet is not authenticated
+refused: 18 at 5, key 6 is unknown
+accepted pack_signed::Buy #2: buy 20
+accepted pack_signed::Buy #5: buy 50
+accepted pack_signed::Buy #6: buy 60
+plain unpack refused: 17
+in process: buy 70

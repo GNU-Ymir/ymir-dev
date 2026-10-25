@@ -1,0 +1,82 @@
+use std::{conv, io, pack::_};
+
+#[packable]
+@abstract
+class Order {
+    pub let id : u64;
+    pub self (id : u64) with id = id {}
+    pub fn describe (self)-> [c8];
+}
+
+#[packable]
+class Buy over Order {
+    pub let qty : i32;
+    pub self (id : u64, qty : i32) with super (id), qty = qty {}
+    pub over describe (self)-> [c8] { "buy " ~ self.qty.to![c8] () }
+}
+
+fn receive (bytes : [u8], dmut v : &Verifier, context : [c8]) {
+    {
+        let o = unpack!{&Order} (bytes, alias v, context-> context.to![u8] (), sender-> "client");
+        println ("accepted ", o.__typeinfo__.name, " #", o.id, ": ", o.describe ());
+    } catch {
+        err : &UnpackError => {
+            let code : u8 = err.code;
+            println ("refused: ", cast!u32 (code), " at ", err.offset, ", ", err.msg);
+        }
+    }
+}
+
+fn main ()
+    throws UnpackError
+{
+    let key = "shared secret".to![u8] ();
+    let dmut signer = copy Signer (5u32, key);
+    let dmut verifier = copy Verifier (maxPayload-> 1024us);
+    verifier:.addKey (5u32, key);
+
+    let bytes = pack (copy Buy (1u64, 10), alias signer, context-> "orders".to![u8] ());
+    receive (bytes, alias verifier, "orders");
+    receive (bytes, alias verifier, "orders");
+
+    let second = pack (copy Buy (2u64, 20), alias signer, context-> "orders".to![u8] ());
+    receive (second, alias verifier, "refunds");
+
+    let dmut tampered = copy second;
+    tampered[tampered.len - 40us] = tampered[tampered.len - 40us] ^ 0x01u8;
+    receive (tampered, alias verifier, "orders");
+
+    let dmut downgraded = copy second;
+    downgraded[ALG_OFFSET] = 0u8;
+    receive (downgraded, alias verifier, "orders");
+    receive (pack (copy Buy (3u64, 30)), alias verifier, "orders");
+
+    let dmut stranger = copy Signer (6u32, key);
+    receive (pack (copy Buy (4u64, 40), alias stranger, context-> "orders".to![u8] ()), alias verifier, "orders");
+
+    receive (second, alias verifier, "orders");
+
+    // a stream holding two packets, cut into frames from their headers
+    let mut stream : [u8] = [];
+    stream = stream ~ pack (copy Buy (5u64, 50), alias signer, context-> "orders".to![u8] ());
+    stream = stream ~ pack (copy Buy (6u64, 60), alias signer, context-> "orders".to![u8] ());
+    let mut at = 0us;
+    while at < stream.len {
+        let size = verifier.frameSize (stream[at .. at + HEADER_SIZE]);
+        receive (stream[at .. at + size], alias verifier, "orders");
+        at += size;
+    }
+
+    {
+        unpack!{&Order} (second);
+    } catch {
+        err : &UnpackError => {
+            let code : u8 = err.code;
+            println ("plain unpack refused: ", cast!u32 (code));
+        }
+    }
+
+    let dmut local = copy Verifier (allowUnsigned-> true);
+    let o = unpack!{&Order} (pack (copy Buy (7u64, 70)), alias local);
+    println ("in process: ", o.describe ());
+}
