@@ -1,0 +1,16 @@
+use std::pack::_;
+
+#[packable]
+class Base {
+    pub let x : i32 = 1;
+    pub self () {}
+}
+
+class Derived over Base {
+    pub self () {}
+}
+
+fn main () {
+    let b : &Base = copy Derived ();
+    pack (b);
+}
