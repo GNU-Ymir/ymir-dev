@@ -1,0 +1,5 @@
+factory::Square 9
+unknown factory::Circle
+factory::Other is not a factory::Shape
+1
+0

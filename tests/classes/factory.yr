@@ -1,0 +1,56 @@
+use std::io;
+use core::reflect::factory;
+
+tag registered {
+    pub self {class C} () {
+        factory::register!{C}();
+    }
+}
+
+@abstract
+class Shape {
+    pub let mut w : i32 = 0;
+    pub self () {}
+    pub fn area (self)-> i32;
+}
+
+#[registered]
+class Square over Shape {
+    pub self () {}
+    pub over area (self)-> i32 { self.w * self.w }
+}
+
+class Circle over Shape {
+    pub self () {}
+    pub over area (self)-> i32 { 3 * self.w * self.w }
+}
+
+#[registered]
+class Other {
+    pub self () {}
+}
+
+fn tryAllocate (dmut f : &Factory, name : [c8]) {
+    {
+        let dmut s = f:.allocate!{&Shape} (name);
+        s.w = 3;
+        println (s.__typeinfo__.name, " ", s.area ());
+    } catch {
+        err : &FactoryError => {
+            match err.code {
+                FactoryErrorCode::UNKNOWN_CLASS => { println ("unknown ", err.name); }
+                _ => { println (err.name, " is not a ", err.expected); }
+            }
+        }
+    }
+}
+
+fn main () {
+    let dmut f = copy Factory ();
+    tryAllocate (alias f, classNameOf!{&Square} ());
+    tryAllocate (alias f, classNameOf!{&Circle} ());
+    tryAllocate (alias f, classNameOf!{&Other} ());
+    println (f.pending ());
+    f:.commit ();
+    println (f.pending ());
+}
