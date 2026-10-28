@@ -1,0 +1,60 @@
+use std::io;
+
+tag upTo {
+    pub yield apply {F: fn (i32)-> i32} (n: i32)-> i32 {
+        for i in 0 .. n { yield F (i); }
+    }
+}
+
+#[upTo]
+fn sq (n: i32)-> i32 { n * n }
+
+tag doubled {
+    pub yield apply {F: fn (i32)-> yield-> R, R} (n: i32)-> R {
+        for i in F (n) { yield i * 2; }
+    }
+}
+
+#[doubled]
+yield count (n: i32)-> i32 {
+    for i in 0 .. n { yield i; }
+}
+
+tag shift {
+    pub fn apply {F: fn (i32)-> R, R} (n: i32)-> R { F (n + 1) }
+}
+
+#[shift]
+yield shifted (n: i32)-> i32 {
+    for i in 0 .. n { yield i; }
+}
+
+tag bumped {
+    pub yield apply {F: fn (i32)-> yield-> R, R} (n: i32)-> R {
+        for i in F (n) { yield i + 100; }
+    }
+
+    pub fn apply {F: fn (i32)-> i32} (n: i32)-> i32 {
+        F (n) + 1
+    }
+}
+
+#[bumped]
+yield bumpedGen (n: i32)-> i32 {
+    for i in 0 .. n { yield i; }
+}
+
+#[bumped]
+fn bumpedFn (n: i32)-> i32 { n * 10 }
+
+#[doubled, upTo]
+fn stacked (n: i32)-> i32 { n + 1 }
+
+fn main () {
+    println (copy [i for i in sq (4)]);
+    println (copy [i for i in count (3)]);
+    println (copy [i for i in shifted (3)]);
+    println (copy [i for i in bumpedGen (3)], " ", bumpedFn (4));
+    println (copy [i for i in stacked (3)]);
+    println (copy [i for i in __pragma!untagged (count) (3)]);
+}

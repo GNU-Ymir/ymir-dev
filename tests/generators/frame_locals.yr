@@ -1,0 +1,55 @@
+use std::io;
+
+// reads after a yield a local only reachable through a pointer taken before it
+yield pointee (n : i32)-> i32 {
+    let mut x = n * 10;
+    let p = &x;
+    x += 1;
+
+    yield 0;
+    yield unsafe { *p };
+}
+
+// mixes locals no yield separates from their uses with values read after a yield
+yield steps (n : i32)-> i32 {
+    let before = n * 2;
+    let square = n * n;
+    yield square + 1;
+
+    let mut acc = 0;
+    for i in 0 .. n {
+        let sq = i * i;
+        acc += sq;
+        yield acc + before;
+    }
+}
+
+// clobbers the stack the resume function ran on
+fn noise (n : i32)-> i32 {
+    let values = [n, n + 1, n + 2, n + 3, n + 4, n + 5, n + 6, n + 7];
+    let mut sum = 0;
+    for v in values { sum += v; }
+    sum
+}
+
+fn main () {
+    for x in pointee (3) {
+        let _ = noise (x);
+        print (x, " ");
+    }
+    println ();
+
+    for x in steps (4) {
+        let _ = noise (x);
+        print (x, " ");
+    }
+    println ();
+
+    let g = pointee (7);
+    let h = pointee (9);
+    for x in g {
+        print (x, " ");
+        for y in h { print (y, " "); }
+    }
+    println ();
+}

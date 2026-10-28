@@ -1,0 +1,68 @@
+use std::io;
+
+tag plusOne {
+    pub async apply {F: fn (i32)-> async-> i32} (n: i32)-> i32 {
+        (await F (n)) + 1
+    }
+}
+
+#[plusOne]
+async twice (n: i32)-> i32 { n * 2 }
+
+tag deferred {
+    pub async apply {F: fn (i32)-> i32} (n: i32)-> i32 {
+        await;
+        F (n)
+    }
+}
+
+#[deferred]
+fn sq (n: i32)-> i32 { n * n }
+
+tag upTo {
+    pub yield apply {F: fn (i32)-> i32} (n: i32)-> i32 {
+        for i in 0 .. n { yield F (i); }
+    }
+}
+
+tag summed {
+    pub async apply {F: fn (i32)-> yield-> i32} (n: i32)-> i32 {
+        let mut s = 0;
+        for i in F (n) {
+            s += i;
+            await;
+        }
+        s
+    }
+}
+
+#[summed, upTo]
+fn cube (n: i32)-> i32 { n * n * n }
+
+#[plusOne, plusOne]
+async thrice (n: i32)-> i32 { n * 3 }
+
+async user (n: i32)-> i32 {
+    (await sq (n)) + (await twice (n))
+}
+
+fn main () {
+    println (twice (3).run ());
+    println (__pragma!untagged (twice) (3).run ());
+    println (sq (4).run ());
+    println (cube (4).run ());
+    println (thrice (2).run ());
+    println (user (3).run ());
+
+    let mut pendings = 0;
+    let c = cube (3);
+    loop {
+        match c.poll (|| => {}) {
+            Ok (v) => {
+                println (v, " after ", pendings, " pending");
+                break;
+            }
+            _ => { pendings += 1; }
+        }
+    }
+}
