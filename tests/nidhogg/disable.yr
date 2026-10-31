@@ -1,0 +1,84 @@
+use std::io;
+use etc::runtime::gc;
+
+lazy mut __FINALIZED__ : usize = 0us;
+
+class Tracked {
+    pub let mut x : i32 = 0;
+    pub self () {}
+    __dtor (mut self) {
+        atomic {
+            __FINALIZED__ += 1us;
+        }
+    }
+}
+
+fn finalized ()-> usize {
+    atomic {
+        __FINALIZED__
+    }
+}
+
+/**
+ * Leaves `nb` unreachable objects having a finalizer, and `mb` megabytes of garbage
+ */
+fn drop (nb : i32, mb : i32) {
+    for i in 0 .. nb {
+        let dmut t = copy Tracked ();
+        t.x = i;
+    }
+
+    for _ in 0 .. mb * 16 {
+        let dmut s = copy [0u8 ; 65536];
+        s [0] = 1u8;
+    }
+}
+
+fn collect () {
+    _yrt_gc_collect ();
+    _yrt_gc_wait_finalizers ();
+}
+
+fn collectFromThread ()-> bool {
+    collect ();
+    _yrt_is_GC_enabled ()
+}
+
+fn main () {
+    println ("enabled: ", _yrt_is_GC_enabled ());
+
+    _yrt_disable_GC ();
+    _yrt_disable_GC ();
+    println ("disabled twice, enabled: ", _yrt_is_GC_enabled ());
+
+    drop (1000, 64);
+    collect ();
+    println ("finalized while disabled: ", finalized ());
+
+    let th = spawn collectFromThread ();
+    println ("a thread collecting while disabled returns, enabled: ", th.value);
+
+    _yrt_enable_GC ();
+    println ("enabled once, enabled: ", _yrt_is_GC_enabled ());
+    drop (1000, 64);
+    collect ();
+    println ("finalized while still disabled: ", finalized ());
+
+    _yrt_enable_GC ();
+    println ("enabled twice, enabled: ", _yrt_is_GC_enabled ());
+    collect ();
+    let n = finalized ();
+    println ("finalized once enabled: ", n >= 1900us && n <= 2000us);
+
+    _yrt_enable_GC ();
+    println ("enabled once more, enabled: ", _yrt_is_GC_enabled ());
+    _yrt_disable_GC ();
+    println ("disabled once, enabled: ", _yrt_is_GC_enabled ());
+    drop (1000, 0);
+    collect ();
+    println ("finalized while disabled again: ", finalized () == n);
+
+    _yrt_enable_GC ();
+    collect ();
+    println ("finalized once enabled again: ", finalized () >= n + 900us);
+}

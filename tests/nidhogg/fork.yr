@@ -1,0 +1,95 @@
+use std::io;
+use std::concurrency::{process, task};
+use std::fs::errors;
+use etc::runtime::gc;
+
+def NB_THREADS = 4u32;
+def NB_FORKS = 200;
+def LENGTH = 64;
+
+class Chain {
+    pub let v : i32;
+    pub let next : (&Chain)?;
+    pub self (v : i32, next : (&Chain)?) with v = v, next = next {}
+}
+
+lazy mut __STOP__ : bool = false;
+
+lazy dmut __BROKEN__ : [i32] = copy [0 ; cast!usize (NB_THREADS)];
+
+fn stopped ()-> bool {
+    atomic {
+        __STOP__
+    }
+}
+
+fn build (seed : i32)-> &Chain {
+    let mut head = copy Chain (seed, none);
+    for i in 1 .. LENGTH {
+        head = copy Chain (seed + i, head?);
+    }
+
+    head
+}
+
+fn ok (c : &Chain, seed : i32)-> bool {
+    let mut n = 0;
+    let mut cur : (&Chain)? = c?;
+    while let Ok (x) = cur {
+        if x.v != seed + LENGTH - 1 - n return false;
+        n += 1;
+        cur = x.next;
+    }
+
+    n == LENGTH
+}
+
+/**
+ * Rebuild chains and check them until main stops it, while the collector runs
+ */
+fn mutate (id : i32) {
+    let mut kept : [mut &Chain] = copy [build (0) ; 16us];
+    let mut broken = 0, mut i = 0;
+    while !stopped () {
+        let slot = cast!usize (i) % kept.len;
+        if !ok (kept [slot], cast!i32 (slot) * 1000 * (if i >= 16 { 1 } else { 0 })) broken += 1;
+        kept [slot] = build (cast!i32 (slot) * 1000);
+        _yrt_gc_collect ();
+        i += 1;
+    }
+
+    atomic {
+        __BROKEN__ [id] = broken;
+    }
+}
+
+fn main ()
+    throws FsError
+{
+    let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
+    for i in 0 .. cast!i32 (NB_THREADS) {
+        pool:.submit (copy || => mutate (i));
+    }
+
+    let mut exited = 0;
+    for _ in 0 .. NB_FORKS {
+        let dmut proc = copy SubProcess ("true", []);
+        proc:.start (redirect-> false);
+        if proc:.wait () == 0 exited += 1;
+    }
+
+    atomic {
+        __STOP__ = true;
+    }
+
+    pool:.join ();
+    pool:.dispose ();
+
+    let mut broken = 0;
+    for b in __BROKEN__ {
+        broken += b;
+    }
+
+    println ("children exited: ", exited, " of ", NB_FORKS);
+    println ("broken: ", broken);
+}

@@ -27,8 +27,8 @@ uv run tests generators -m debug  # the cases whose path contains `generators`, 
 uv run tests --update             # write what the failing runs produced as their expected files
 ```
 
-Compiles each `tests/<suite>/<name>.yr` with the preview gyc, runs it, and checks what it did
-against the files of the same basename:
+Compiles each `tests/<suite>/<name>.yr` with the preview gyc, runs it (once more per line of its
+`.env`), and checks what it did against the files of the same basename:
 
 | file | checks |
 |---|---|
@@ -37,8 +37,10 @@ against the files of the same basename:
 | `<name>.stderr` | lines the stderr must contain, in that order (the panic trace differs with `-g`) |
 | `<name>.in` | fed to stdin |
 | `<name>.flags` | extra gyc flags |
+| `<name>.env` | more environments to run it in, one per line of `VAR=value` assignments |
 
-A failing run leaves its binary, stdout, stderr and status in `build/tests/<suite>/<name>.<mode>.*`.
+A failing run leaves its binary, stdout, stderr and status in `build/tests/<suite>/<name>.<mode>.*`
+(`<name>.<mode>.<n>.*` for the `n`-th line of the `.env`).
 To add a case, write the `.yr`, run `uv run tests <name> --update`, and **read the `.out` it wrote**
 before committing it. `--update` writes `.out` and `.status` only. A `.stderr` is written by hand.
 

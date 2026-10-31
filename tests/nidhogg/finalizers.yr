@@ -1,0 +1,183 @@
+use std::io;
+use std::concurrency::task;
+use etc::runtime::gc;
+
+def NB_CYCLES = 2000;
+def NB_PHOENIXES = 2000;
+def NB_THREADS = 4u32;
+def CHURN = 20000;
+
+lazy mut __NODES__ : i32 = 0;
+lazy dmut __PHOENIXES__ : [i32] = copy [0 ; cast!usize (NB_PHOENIXES)];
+lazy mut __CHURNED__ : i32 = 0;
+lazy mut __RISEN__ : [&Phoenix] = [];
+
+/**
+ * A node of a reference cycle
+ */
+class Node {
+    pub let mut next : (&Node)? = none;
+    pub self () {}
+    __dtor (mut self) {
+        atomic {
+            __NODES__ += 1;
+        }
+    }
+}
+
+class Leaf {
+    pub let v : i32;
+    pub self (v : i32) with v = v {}
+}
+
+/**
+ * An object its finalizer makes reachable again, with what it points to
+ */
+class Phoenix {
+    pub let id : i32;
+    pub let leaf : &Leaf;
+    pub let data : [i32];
+    pub self (id : i32) with id = id, leaf = copy Leaf (id), data = copy [id ; 32us] {}
+
+    pub fn ok (self)-> bool {
+        if self.leaf.v != self.id || self.data.len != 32us return false;
+        for x in self.data {
+            if x != self.id return false;
+        }
+
+        true
+    }
+
+    __dtor (mut self) {
+        atomic {
+            __PHOENIXES__ [self.id] += 1;
+            __RISEN__ ~= [self];
+        }
+    }
+}
+
+class Churned {
+    pub let v : i32;
+    pub self (v : i32) with v = v {}
+    __dtor (mut self) {
+        atomic {
+            __CHURNED__ += 1;
+        }
+    }
+}
+
+fn counted (ref x : i32)-> i32 {
+    atomic {
+        x
+    }
+}
+
+fn collect () {
+    _yrt_gc_collect ();
+    _yrt_gc_wait_finalizers ();
+}
+
+/**
+ * Leaves NB_CYCLES unreachable cycles of three nodes
+ */
+fn makeCycles () {
+    for _ in 0 .. NB_CYCLES {
+        let dmut a = copy Node (), dmut b = copy Node (), dmut c = copy Node ();
+        a.next = (alias b)?;
+        b.next = (alias c)?;
+        c.next = (alias a)?;
+    }
+}
+
+fn makePhoenixes () {
+    for i in 0 .. NB_PHOENIXES {
+        let p = copy Phoenix (i);
+        if p.id < 0 println ("unreachable");
+    }
+}
+
+fn churn (seed : i32) {
+    for i in 0 .. CHURN {
+        let c = copy Churned (seed + i);
+        if c.v < 0 println ("unreachable");
+    }
+}
+
+fn risen ()-> [&Phoenix] {
+    atomic {
+        __RISEN__
+    }
+}
+
+/**
+ * @returns: the number of phoenixes finalized, and the most times one was
+ */
+fn phoenixCalls ()-> (i32, i32) {
+    atomic {
+        let mut n = 0, mut most = 0;
+        for c in __PHOENIXES__ {
+            if c != 0 n += 1;
+            if c > most most = c;
+        }
+
+        (n, most)
+    }
+}
+
+/**
+ * @returns: true iif every phoenix risen is intact
+ */
+fn intact ()-> bool {
+    for p in risen () {
+        if !p.ok () return false;
+    }
+
+    true
+}
+
+fn main () {
+    makeCycles ();
+    collect ();
+    let nodes = counted (__NODES__);
+    println ("cycles finalized: ", nodes >= NB_CYCLES * 3 * 9 / 10 && nodes <= NB_CYCLES * 3);
+
+    makePhoenixes ();
+    collect ();
+    let (calls, _) = phoenixCalls ();
+    println ("phoenixes risen: ", calls >= NB_PHOENIXES * 9 / 10 && calls == cast!i32 (risen ().len));
+    println ("phoenixes intact: ", intact ());
+
+    for _ in 0 .. 5 {
+        let _ = copy [0u8 ; 1us << 20us];
+        collect ();
+    }
+
+    let (_, most) = phoenixCalls ();
+    println ("phoenixes intact after 5 cycles: ", intact ());
+    println ("phoenixes finalized once: ", most == 1);
+
+    atomic {
+        __RISEN__ = [];
+    }
+
+    collect ();
+    collect ();
+    let (_, mostDropped) = phoenixCalls ();
+    println ("phoenixes dropped, finalized once: ", mostDropped == 1);
+
+    let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
+    for i in 0 .. cast!i32 (NB_THREADS) {
+        pool:.submit (copy || => churn (i * CHURN));
+    }
+
+    for _ in 0 .. 20 {
+        _yrt_gc_collect ();
+    }
+
+    pool:.join ();
+    pool:.dispose ();
+    collect ();
+    let churned = counted (__CHURNED__);
+    let all = cast!i32 (NB_THREADS) * CHURN;
+    println ("churned finalized: ", churned >= all * 9 / 10 && churned <= all);
+}
