@@ -1,0 +1,97 @@
+use std::io;
+use etc::runtime::gc;
+
+def BATCHES = 1000;
+def LENGTH = 200;
+
+class Chain {
+    pub let v : i32;
+    pub let next : (&Chain)?;
+    pub self (v : i32, next : (&Chain)?) with v = v, next = next {}
+}
+
+lazy mut __STOP__ : bool = false;
+
+fn stopped ()-> bool {
+    atomic {
+        __STOP__
+    }
+}
+
+/**
+ * Collect until main stops it
+ * @returns: the number of cycles it ran
+ */
+fn driver ()-> i32 {
+    let mut cycles = 0;
+    while !stopped () {
+        _yrt_gc_collect ();
+        cycles += 1;
+    }
+
+    cycles
+}
+
+/**
+ * @returns: a chain of LENGTH elements counting down from seed + LENGTH - 1 to seed, leaving as
+ * much garbage
+ */
+fn build (seed : i32)-> &Chain {
+    let mut head = copy Chain (seed, none);
+    for i in 1 .. LENGTH {
+        let garbage = copy [i ; 8us];
+        head = copy Chain (seed + garbage [7], head?);
+    }
+
+    head
+}
+
+/**
+ * Builds a chain on a thread spawned by a thread
+ */
+fn nested (seed : i32)-> &Chain {
+    let inner = spawn build (seed);
+    inner.value
+}
+
+fn ok (c : &Chain, seed : i32)-> bool {
+    let mut n = 0;
+    let mut cur : (&Chain)? = c?;
+    while let Ok (x) = cur {
+        if x.v != seed + LENGTH - 1 - n return false;
+        n += 1;
+        cur = x.next;
+    }
+
+    n == LENGTH
+}
+
+fn main () {
+    let d = spawn driver ();
+
+    let mut kept : [&Chain] = [];
+    for i in 0 .. BATCHES {
+        let seed = i * 8 * LENGTH;
+        let a = spawn build (seed);
+        let b = spawn build (seed + LENGTH);
+        let c = spawn nested (seed + 2 * LENGTH);
+        let e = spawn build (seed + 3 * LENGTH);
+        kept ~= [a.value, b.value, c.value, e.value];
+    }
+
+    atomic {
+        __STOP__ = true;
+    }
+
+    let cycles = d.value;
+    _yrt_gc_collect ();
+
+    let mut broken = 0;
+    for j, c in kept {
+        let seed = cast!i32 (j / 4us) * 8 * LENGTH + cast!i32 (j % 4us) * LENGTH;
+        if !ok (c, seed) broken += 1;
+    }
+
+    println ("chains: ", kept.len, ", broken: ", broken);
+    println ("cycles ran: ", cycles > 0);
+}

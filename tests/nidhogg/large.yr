@@ -1,0 +1,111 @@
+use std::io;
+use std::concurrency::task;
+use etc::runtime::gc;
+
+def NB_THREADS = 4u32;
+def ROUNDS = 300;
+def RING = 4us;
+def EVERY = 64us;
+
+class Leaf {
+    pub let v : u64;
+    pub self (v : u64) with v = v {}
+}
+
+/**
+ * A large array of pointers, every EVERY-th one to a leaf of its own, the others to `base`, next
+ * to a large array holding no pointer
+ */
+class Big {
+    pub let seed : u64;
+    pub let mut refs : [mut &Leaf];
+    pub let words : [u64];
+
+    pub self (seed : u64, n : usize, base : &Leaf)
+        with seed = seed, refs = copy [base ; n], words = copy [seed ; n]
+    {
+        for j in 0us .. (n + EVERY - 1us) / EVERY {
+            self.refs [j * EVERY] = copy Leaf (seed + cast!u64 (j));
+        }
+    }
+
+    pub fn ok (self, base : &Leaf)-> bool {
+        for j, r in self.refs {
+            if j % EVERY == 0us {
+                if r.v != self.seed + cast!u64 (j / EVERY) return false;
+            } else if r !is base {
+                return false;
+            }
+        }
+
+        for w in self.words {
+            if w != self.seed return false;
+        }
+
+        true
+    }
+}
+
+lazy dmut __BROKEN__ : [i32] = copy [0 ; cast!usize (NB_THREADS)];
+
+lazy mut __FINISHED__ : u32 = 0u32;
+
+def SIZES = [4100us, 8192us, 20000us, 40000us];
+
+fn churn (id : u64)-> i32 {
+    let base = copy Leaf (0xbadu64);
+    let dmut ring : [(&Big)?] = copy [none ; RING];
+    let mut broken = 0;
+    for i in 0 .. ROUNDS {
+        for b in ring {
+            if let Ok (big) = b {
+                if !big.ok (base) broken += 1;
+            }
+        }
+
+        let slot = cast!usize (i) % RING;
+
+        let seed = (id << 32u64) | cast!u64 (i << 12);
+        ring [slot] = (copy Big (seed, SIZES [cast!usize (i) % SIZES.len], base))?;
+    }
+
+    broken
+}
+
+fn worker (id : i32) {
+    let broken = churn (cast!u64 (id));
+    atomic {
+        __BROKEN__ [id] = broken;
+        __FINISHED__ += 1u32;
+    }
+}
+
+fn finished ()-> u32 {
+    atomic {
+        __FINISHED__
+    }
+}
+
+fn main () {
+    let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
+    for i in 0 .. cast!i32 (NB_THREADS) {
+        pool:.submit (copy || => worker (i));
+    }
+
+    let mut cycles = 0;
+    while finished () < NB_THREADS {
+        _yrt_gc_collect ();
+        cycles += 1;
+    }
+
+    pool:.join ();
+    pool:.dispose ();
+
+    let mut broken = 0;
+    for b in __BROKEN__ {
+        broken += b;
+    }
+
+    println ("broken: ", broken);
+    println ("cycles ran: ", cycles > 0);
+}

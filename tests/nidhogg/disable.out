@@ -1,0 +1,12 @@
+enabled: true
+disabled twice, enabled: false
+finalized while disabled: 0
+a thread collecting while disabled returns, enabled: false
+enabled once, enabled: false
+finalized while still disabled: 0
+enabled twice, enabled: true
+finalized once enabled: true
+enabled once more, enabled: true
+disabled once, enabled: false
+finalized while disabled again: true
+finalized once enabled again: true

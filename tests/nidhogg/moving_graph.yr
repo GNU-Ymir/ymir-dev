@@ -1,0 +1,153 @@
+use std::io;
+use std::concurrency::task;
+use core::concurrency::sync::mutex;
+use etc::runtime::gc;
+
+def NB_THREADS = 8u32;
+def NB_BINS = 64us;
+def NB_ITEMS = 4096;
+def MOVES = 100000;
+def PAYLOAD = 16us;
+
+class Item {
+    pub let id : i32;
+    pub let mut payload : [i32];
+    pub let dmut next : (&Item)? = none;
+    pub self (id : i32) with id = id, payload = copy [id ; PAYLOAD] {}
+}
+
+class Bin {
+    pub let dmut lock : &Mutex;
+    pub let dmut head : (&Item)? = none;
+    pub let mut count : i32 = 0;
+    pub self () with lock = copy Mutex () {}
+}
+
+fn makeBins ()-> dmut [&Bin] {
+    let dmut bins : [&Bin] = copy [copy Bin () ; NB_BINS];
+    for i in 0us .. NB_BINS {
+        bins [i] = copy Bin ();
+    }
+
+    for id in 0 .. NB_ITEMS {
+        let dmut bin = alias bins [cast!usize (id) % NB_BINS];
+        let dmut it = copy Item (id);
+        it.next = alias bin.head;
+        bin.head = (alias it)?;
+        bin.count += 1;
+    }
+
+    alias bins
+}
+
+lazy dmut __BINS__ : [&Bin] = makeBins ();
+
+lazy mut __FINISHED__ : u32 = 0u32;
+
+fn rand (ref mut r : u64)-> u64 {
+    r = r ^ (r << 13u64);
+    r = r ^ (r >> 7u64);
+    r = r ^ (r << 17u64);
+    r
+}
+
+/**
+ * Pop the first item of `src`, give it a new payload one time out of four, and push it on `dst`
+ * @returns: true iif `src` was not empty
+ */
+fn transfer (dmut src : &Bin, dmut dst : &Bin, renew : bool)-> bool {
+    if let Ok (dmut it) = alias src.head {
+        src.head = alias it.next;
+        if renew {
+            it.payload = copy [it.id ; PAYLOAD];
+        }
+
+        it.next = alias dst.head;
+        dst.head = (alias it)?;
+        src.count -= 1;
+        dst.count += 1;
+        return true;
+    }
+
+    false
+}
+
+fn worker (seed : u64) {
+    let mut r = seed;
+    for _ in 0 .. MOVES {
+        let a = cast!usize (rand (ref r) % cast!u64 (NB_BINS));
+        let b = cast!usize (rand (ref r) % cast!u64 (NB_BINS));
+        if a == b continue;
+
+        let dmut src = alias __BINS__ [a];
+        let dmut dst = alias __BINS__ [b];
+        let dmut first = alias __BINS__ [if a < b { a } else { b }];
+        let dmut second = alias __BINS__ [if a < b { b } else { a }];
+        first.lock:.lock ();
+        second.lock:.lock ();
+        transfer (alias src, alias dst, (r & 3u64) == 0u64);
+        second.lock:.unlock ();
+        first.lock:.unlock ();
+
+        let garbage = copy [r ; 8us];
+        if garbage [0] == 0u64 println ("unreachable");
+    }
+
+    atomic {
+        __FINISHED__ += 1u32;
+    }
+}
+
+fn finished ()-> u32 {
+    atomic {
+        __FINISHED__
+    }
+}
+
+fn main () {
+    let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
+    for i in 0u32 .. NB_THREADS {
+        let seed = 0x9e3779b97f4a7c15u64 * cast!u64 (i + 1u32);
+        pool:.submit (copy || => worker (seed));
+    }
+
+    let mut cycles = 0;
+    while finished () < NB_THREADS {
+        _yrt_gc_collect ();
+        cycles += 1;
+    }
+
+    pool:.join ();
+    pool:.dispose ();
+
+    let dmut seen = copy [false ; cast!usize (NB_ITEMS)];
+    let mut items = 0, mut broken = 0, mut counts = 0;
+    for bin in __BINS__ {
+        let mut len = 0;
+        let mut cur = bin.head;
+        while let Ok (it) = cur {
+            if it.id < 0 || it.id >= NB_ITEMS || seen [cast!usize (it.id)] {
+                broken += 1;
+                break;
+            }
+
+            seen [cast!usize (it.id)] = true;
+            if it.payload.len != PAYLOAD {
+                broken += 1;
+            } else {
+                for x in it.payload {
+                    if x != it.id { broken += 1; break; }
+                }
+            }
+
+            len += 1;
+            cur = it.next;
+        }
+
+        items += len;
+        if len != bin.count counts += 1;
+    }
+
+    println ("items: ", items, ", broken: ", broken, ", miscounted bins: ", counts);
+    println ("cycles ran: ", cycles > 0);
+}

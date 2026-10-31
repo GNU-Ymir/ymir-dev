@@ -1,0 +1,112 @@
+use std::io;
+use std::concurrency::task;
+use etc::runtime::gc;
+
+def NB_THREADS = 8u32;
+def ROUNDS = 10000;
+def SHARED_EVERY = 16;
+
+class Leaf {
+    pub let v : i32;
+    pub let tail : [i32];
+    pub self (v : i32) with v = v, tail = copy [v ; 3us] {}
+    pub fn ok (self, v : i32)-> bool {
+        self.v == v && self.tail.len == 3us && self.tail [0] == v && self.tail [2] == v
+    }
+}
+
+lazy dmut __SHARED__ : [i32 => &Leaf] = copy [];
+
+lazy dmut __BROKEN__ : [i32] = copy [0 ; cast!usize (NB_THREADS)];
+
+lazy mut __FINISHED__ : u32 = 0u32;
+
+/**
+ * Grow a slice of leaves and a map of slices of leaves, the map losing a key out of three, and
+ * insert a leaf in the shared map every SHARED_EVERY rounds
+ * @returns: the number of leaves found broken once grown
+ */
+fn grow (id : i32)-> i32 {
+    let mut s : [&Leaf] = [];
+    let dmut m : [i32 => [&Leaf]] = copy [];
+    for i in 0 .. ROUNDS {
+        s ~= [copy Leaf (i)];
+        m [i] = copy [copy Leaf (i), copy Leaf (-i)];
+        if i % 3 == 2 {
+            m:.remove (i - 1);
+        }
+
+        if i % SHARED_EVERY == 0 {
+            let key = id * ROUNDS + i;
+            atomic {
+                __SHARED__ [key] = copy Leaf (key);
+            }
+        }
+    }
+
+    let mut broken = 0;
+    if s.len != cast!usize (ROUNDS) broken += 1;
+    for i, l in s {
+        if !l.ok (cast!i32 (i)) broken += 1;
+    }
+
+    for i in 0 .. ROUNDS {
+        let removed = i % 3 == 1 && i != ROUNDS - 1;
+        if let Ok (ls) = m [i] {
+            if removed || ls.len != 2us || !ls [0].ok (i) || !ls [1].ok (-i) broken += 1;
+        } else if !removed {
+            broken += 1;
+        }
+    }
+
+    broken
+}
+
+fn worker (id : i32) {
+    let broken = grow (id);
+    atomic {
+        __BROKEN__ [id] = broken;
+        __FINISHED__ += 1u32;
+    }
+}
+
+fn finished ()-> u32 {
+    atomic {
+        __FINISHED__
+    }
+}
+
+fn main () {
+    let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
+    for i in 0 .. cast!i32 (NB_THREADS) {
+        pool:.submit (copy || => worker (i));
+    }
+
+    let mut cycles = 0;
+    while finished () < NB_THREADS {
+        _yrt_gc_collect ();
+        cycles += 1;
+    }
+
+    pool:.join ();
+    pool:.dispose ();
+
+    let mut broken = 0;
+    for b in __BROKEN__ {
+        broken += b;
+    }
+
+    let mut shared = 0;
+    for id in 0 .. cast!i32 (NB_THREADS) {
+        for i in 0 .. ROUNDS / SHARED_EVERY {
+            let key = id * ROUNDS + i * SHARED_EVERY;
+            if let Ok (l) = __SHARED__ [key] {
+                if l.ok (key) shared += 1;
+            }
+        }
+    }
+
+    println ("broken in the threads: ", broken);
+    println ("shared leaves: ", shared, " of ", __SHARED__.len);
+    println ("cycles ran: ", cycles > 0);
+}
