@@ -1,0 +1,98 @@
+use std::io;
+use std::concurrency::task;
+use etc::runtime::gc;
+
+def NB_THREADS = 4u32;
+def ROUNDS = 200;
+def RING = 8us;
+def WIDE = 2000us;
+
+class Leaf {
+    pub let v : u64;
+    pub self (v : u64) with v = v {}
+}
+
+/**
+ * A node pointing to WIDE leaves of its own: scanning it shades more objects than a mark stack of
+ * NIDHOGG_MARK_STACK entries holds, the ones left out marked, for a rescan of the heap to scan
+ */
+class Wide {
+    pub let seed : u64;
+    pub let mut leaves : [mut &Leaf];
+
+    pub self (seed : u64, base : &Leaf)
+        with seed = seed, leaves = copy [base ; WIDE]
+    {
+        for j in 0us .. WIDE {
+            self.leaves [j] = copy Leaf (seed + cast!u64 (j));
+        }
+    }
+
+    pub fn ok (self)-> bool {
+        for j, l in self.leaves {
+            if l.v != self.seed + cast!u64 (j) return false;
+        }
+
+        true
+    }
+}
+
+lazy dmut __BROKEN__ : [i32] = copy [0 ; cast!usize (NB_THREADS)];
+
+lazy mut __FINISHED__ : u32 = 0u32;
+
+fn churn (id : u64)-> i32 {
+    let base = copy Leaf (0xbadu64);
+    let dmut ring : [(&Wide)?] = copy [none ; RING];
+    let mut broken = 0;
+    for i in 0 .. ROUNDS {
+        for w in ring {
+            if let Ok (wide) = w {
+                if !wide.ok () broken += 1;
+            }
+        }
+
+        let seed = (id << 32u64) | cast!u64 (i << 16);
+        ring [cast!usize (i) % RING] = (copy Wide (seed, base))?;
+    }
+
+    broken
+}
+
+fn worker (id : i32) {
+    let broken = churn (cast!u64 (id));
+    atomic {
+        __BROKEN__ [id] = broken;
+        __FINISHED__ += 1u32;
+    }
+}
+
+fn finished ()-> u32 {
+    atomic {
+        __FINISHED__
+    }
+}
+
+fn main () {
+    let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
+    for i in 0 .. cast!i32 (NB_THREADS) {
+        pool:.submit (copy || => worker (i));
+    }
+
+    let mut cycles = 0;
+    while finished () < NB_THREADS {
+        _yrt_gc_collect ();
+        cycles += 1;
+    }
+
+    pool:.join ();
+    pool:.dispose ();
+
+    let mut broken = 0;
+    for b in __BROKEN__ {
+        broken += b;
+    }
+
+    println ("broken: ", broken);
+    println ("cycles ran: ", cycles > 0);
+}
