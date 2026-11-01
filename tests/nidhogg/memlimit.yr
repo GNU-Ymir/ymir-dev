@@ -1,0 +1,111 @@
+use std::io;
+use std::env;
+use std::concurrency::task;
+
+def NB_THREADS = 4u32;
+def ROUNDS = 4096;
+def RING = 32us;
+def PER = 1024us;
+
+class Leaf {
+    pub let v : u64;
+    pub self (v : u64) with v = v {}
+}
+
+lazy dmut __BROKEN__ : [u64] = copy [0u64 ; cast!usize (NB_THREADS)];
+
+/**
+ * The resident memory past NIDHOGG_MEMLIMIT the process may reach: the runtime, the metadata of
+ * the collector and the copies of the stacks, which the limit leaves out
+ */
+def SLACK_KB = 16384u64;
+
+/**
+ * The peak resident memory without a limit, a sanity bound
+ */
+def UNBOUNDED_KB = 1048576u64;
+
+extern (C) fn getrusage (who : i32, dmut usage : *u64)-> i32;
+
+/**
+ * @returns: the peak resident memory of the process in KiB, the ru_maxrss of getrusage
+ */
+fn peakResidentKb ()-> u64 {
+    let dmut usage = [0u64 ; 18];
+    if getrusage (0, alias usage.ptr) != 0 return 0u64;
+    usage [4]
+}
+
+/**
+ * @returns: the peak resident memory the process may reach, from the limit in MiB of
+ * NIDHOGG_MEMLIMIT if it is set
+ */
+fn boundKb ()-> u64 {
+    let limit = unsafe { getVar ("NIDHOGG_MEMLIMIT") };
+    let mut mib = 0u64;
+    for c in limit {
+        if c < '0' || c > '9' break;
+        mib = mib * 10u64 + cast!u64 (cast!u8 (c) - cast!u8 ('0'));
+    }
+
+    if mib == 0u64 { UNBOUNDED_KB } else { mib * 1024u64 + SLACK_KB }
+}
+
+/**
+ * Allocate blocks of PER small objects, keeping the last RING of them, far more than the live heap
+ * in all, and check the ones kept
+ * @returns: the number of leaves found broken
+ */
+fn churn (id : u64)-> u64 {
+    let base = copy Leaf (0u64);
+    let mut ring : [mut [&Leaf]] = copy [[] ; RING];
+    let mut broken = 0u64;
+    for i in 0us .. cast!usize (ROUNDS) {
+        let slot = i % RING;
+        for j, l in ring [slot] {
+            if l.v != ((id << 40u64) | cast!u64 ((i - RING) * PER + j)) broken += 1u64;
+        }
+
+        ring [slot] = fill (id, i, base);
+    }
+
+    broken
+}
+
+/**
+ * @returns: the block `i` of the thread `id`
+ */
+fn fill (id : u64, i : usize, base : &Leaf)-> [&Leaf] {
+    let mut b : [mut &Leaf] = copy [base ; PER];
+    for j in 0us .. PER {
+        b [j] = copy Leaf ((id << 40u64) | cast!u64 (i * PER + j));
+    }
+
+    b
+}
+
+fn worker (id : u32) {
+    let broken = churn (cast!u64 (id));
+    atomic {
+        __BROKEN__ [id] = broken;
+    }
+}
+
+fn main () {
+    let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
+    for i in 0u32 .. NB_THREADS {
+        pool:.submit (copy || => worker (i));
+    }
+
+    pool:.join ();
+    pool:.dispose ();
+
+    let mut broken = 0u64;
+    for b in __BROKEN__ {
+        broken += b;
+    }
+
+    let peak = peakResidentKb ();
+    println ("broken: ", broken);
+    println ("peak resident within the limit: ", peak != 0u64 && peak < boundKb ());
+}

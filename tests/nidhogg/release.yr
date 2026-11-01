@@ -1,0 +1,100 @@
+use std::io;
+use etc::runtime::gc;
+
+def BLOCKS = 2048us;
+def PER = 1024us;
+
+class Leaf {
+    pub let v : u64;
+    pub self (v : u64) with v = v {}
+}
+
+/**
+ * The resident memory the process may keep once the heap it grew is unreachable: the free chunks
+ * are unmapped, the small objects having left their pages resident when they were freed
+ */
+def MAX_RELEASED_KB = 32768u64;
+
+/**
+ * The peak resident memory the heap has to reach, for the release to be measured at all
+ */
+def MIN_PEAK_KB = 65536u64;
+
+extern (C) fn getrusage (who : i32, dmut usage : *u64)-> i32;
+extern (C) fn open (path : *c8, flags : i32)-> i32;
+extern (C) fn read (fd : i32, dmut buf : *u8, n : usize)-> i64;
+extern (C) fn close (fd : i32)-> i32;
+
+/**
+ * @returns: the peak resident memory of the process in KiB, the ru_maxrss of getrusage
+ */
+fn peakResidentKb ()-> u64 {
+    let dmut usage = [0u64 ; 18];
+    if getrusage (0, alias usage.ptr) != 0 return 0u64;
+    usage [4]
+}
+
+/**
+ * @returns: the resident memory of the process in KiB, the second number of /proc/self/statm
+ */
+fn residentKb ()-> u64 {
+    let fd = open ("/proc/self/statm\u{0}".ptr, 0);
+    if fd < 0 return 0u64;
+
+    let dmut buf = copy [0u8 ; 128us];
+    let n = read (fd, alias buf.ptr, 127us);
+    close (fd);
+    if n <= 0i64 return 0u64;
+
+    let mut i = 0us;
+    while i < cast!usize (n) && buf [i] != 32u8 { i += 1us; }
+    i += 1us;
+
+    let mut pages = 0u64;
+    while i < cast!usize (n) && buf [i] >= 48u8 && buf [i] <= 57u8 {
+        pages = pages * 10u64 + cast!u64 (buf [i] - 48u8);
+        i += 1us;
+    }
+
+    pages * 4u64
+}
+
+/**
+ * Grow a heap of BLOCKS * PER small objects, and check them, on a thread of its own: once it
+ * ended, no stale word of its stack keeps them reachable
+ * @returns: the number of leaves found broken
+ */
+fn grow ()-> u64 {
+    let base = copy Leaf (0u64);
+    let mut blocks : [[&Leaf]] = [];
+    for i in 0us .. BLOCKS {
+        let mut b : [mut &Leaf] = copy [base ; PER];
+        for j in 0us .. PER {
+            b [j] = copy Leaf (cast!u64 (i * PER + j));
+        }
+
+        blocks ~= [b];
+    }
+
+    let mut broken = 0u64;
+    for i, b in blocks {
+        for j, l in b {
+            if l.v != cast!u64 (i * PER + j) broken += 1u64;
+        }
+    }
+
+    broken
+}
+
+fn main () {
+    let th = spawn grow ();
+    let broken = th.value;
+    for _ in 0 .. 3 {
+        _yrt_gc_collect ();
+    }
+
+    let resident = residentKb ();
+    println ("broken: ", broken);
+    println ("heap grown: ", peakResidentKb () > MIN_PEAK_KB);
+    println ("heap released: ", resident != 0u64 && resident < MAX_RELEASED_KB);
+}
