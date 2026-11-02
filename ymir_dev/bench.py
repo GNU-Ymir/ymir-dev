@@ -37,6 +37,7 @@ CATEGORY = {
     "map_insert": "map", "map_lookup": "map",
     "virtual_dispatch": "oop", "closures": "closures",
     "exceptions": "exceptions", "concurrency": "concurrency",
+    "gen_pipeline": "generators", "gen_many": "generators", "async_chain": "async",
 }
 BENCHES = list(CATEGORY)
 UNPINNED = {"concurrency"}
