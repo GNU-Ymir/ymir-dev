@@ -52,6 +52,25 @@ lazy mut __FINISHED__ : u32 = 0u32;
 
 def SIZES = [4100us, 8192us, 20000us, 40000us];
 
+/**
+ * The peak resident memory the process may reach: the threads allocate faster than the collector
+ * marks, what they allocate during a marking is kept until the next cycle, and only the pacing of
+ * their allocations keeps the heap from growing to a gigabyte
+ */
+def MAX_RESIDENT_KB = 65536u64;
+
+extern (C) fn getrusage (who : i32, dmut usage : *u64)-> i32;
+
+/**
+ * @returns: the peak resident memory of the process in KiB, the ru_maxrss of getrusage, which
+ * follows its two timevals
+ */
+fn peakResidentKb ()-> u64 {
+    let dmut usage = [0u64 ; 18];
+    if getrusage (0, alias usage.ptr) != 0 return 0u64;
+    usage [4]
+}
+
 fn churn (id : u64)-> i32 {
     let base = copy Leaf (0xbadu64);
     let dmut ring : [(&Big)?] = copy [none ; RING];
@@ -106,6 +125,8 @@ fn main () {
         broken += b;
     }
 
+    let peak = peakResidentKb ();
     println ("broken: ", broken);
     println ("cycles ran: ", cycles > 0);
+    println ("peak resident bounded: ", peak != 0u64 && peak < MAX_RESIDENT_KB);
 }

@@ -1,0 +1,129 @@
+use std::io;
+use std::concurrency::task;
+use std::time::instant;
+use etc::runtime::gc;
+
+def NB_THREADS = 32u32;
+def COLLECTS = 20;
+
+/**
+ * The longest a forced cycle may take: each one interrupts every thread several times, which took
+ * seconds once the threads outnumbered the cores
+ */
+def MAX_COLLECT_MS = 500u64;
+
+/**
+ * The peak resident memory the process may reach: the threads allocate faster than the collector
+ * marks, and without the pacing of their allocations the heap grew past a gigabyte
+ */
+def MAX_RESIDENT_KB = 65536u64;
+
+extern (C) fn getrusage (who : i32, dmut usage : *u64)-> i32;
+
+/**
+ * @returns: the peak resident memory of the process in KiB, the ru_maxrss of getrusage, which
+ * follows its two timevals
+ */
+fn peakResidentKb ()-> u64 {
+    let dmut usage = [0u64 ; 18];
+    if getrusage (0, alias usage.ptr) != 0 return 0u64;
+    usage [4]
+}
+
+class Node {
+    pub let mut next : (&Node)? = none;
+    pub self () {}
+}
+
+lazy mut __STOP__ : bool = false;
+
+lazy mut __STARTED__ : u32 = 0u32;
+
+fn stopped ()-> bool {
+    atomic {
+        __STOP__
+    }
+}
+
+fn started ()-> u32 {
+    atomic {
+        __STARTED__
+    }
+}
+
+/**
+ * Store pointers into a ring of nodes, allocating as fast as it can, until main stops it
+ * @returns: false iif a node of the ring was found broken
+ */
+fn store ()-> bool {
+    atomic {
+        __STARTED__ += 1u32;
+    }
+
+    let dmut ring = copy [copy Node () ; 64us];
+    let dmut fixed = copy [copy Node () ; 8us];
+    for j in 0us .. 8us {
+        fixed [j] = copy Node ();
+    }
+
+    let mut i = 0us;
+    let mut ok = true;
+    loop {
+        if (i % 4096us) == 0us && stopped () break;
+
+        let dmut n = copy Node ();
+        n.next = (alias fixed [i % 8us])?;
+        ring [i % 64us] = alias n;
+        if let Ok (next) = ring [(i + 1us) % 64us].next {
+            if i >= 64us && next !is fixed [(i + 1us - 64us) % 8us] ok = false;
+        }
+
+        i += 1us;
+    }
+
+    ok
+}
+
+fn nowMs ()-> u64 {
+    let t = Instant::now ();
+    t.sec * 1000u64 + t.usec / 1000u64
+}
+
+lazy mut __BROKEN__ : u32 = 0u32;
+
+fn worker () {
+    if !store () {
+        atomic {
+            __BROKEN__ += 1u32;
+        }
+    }
+}
+
+fn main () {
+    let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
+    for _ in 0u32 .. NB_THREADS {
+        pool:.submit (&worker);
+    }
+
+    while started () < NB_THREADS {}
+
+    let mut longest = 0u64;
+    for _ in 0 .. COLLECTS {
+        let start = nowMs ();
+        _yrt_gc_collect ();
+        let d = nowMs () - start;
+        if d > longest longest = d;
+    }
+
+    atomic {
+        __STOP__ = true;
+    }
+
+    pool:.join ();
+    pool:.dispose ();
+
+    println ("broken: ", atomic { __BROKEN__ });
+    let peak = peakResidentKb ();
+    println ("collects bounded: ", longest < MAX_COLLECT_MS);
+    println ("peak resident bounded: ", peak != 0u64 && peak < MAX_RESIDENT_KB);
+}

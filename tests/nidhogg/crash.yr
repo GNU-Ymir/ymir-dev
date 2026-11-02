@@ -1,0 +1,80 @@
+use std::concurrency::task;
+use etc::runtime::gc;
+
+def NB_THREADS = 8u32;
+def CYCLES = 20;
+
+class Node {
+    pub let mut next : (&Node)? = none;
+    pub self () {}
+}
+
+lazy mut __STARTED__ : u32 = 0u32;
+
+lazy mut __CYCLES__ : i32 = 0;
+
+fn started ()-> u32 {
+    atomic {
+        __STARTED__
+    }
+}
+
+fn cycles ()-> i32 {
+    atomic {
+        __CYCLES__
+    }
+}
+
+/**
+ * Store pointers into a ring of nodes forever, allocating as fast as it can
+ */
+fn store () {
+    atomic {
+        __STARTED__ += 1u32;
+    }
+
+    let dmut ring = copy [copy Node () ; 64us];
+    let dmut fixed = copy [copy Node () ; 8us];
+    let mut i = 0us;
+    loop {
+        let dmut n = copy Node ();
+        n.next = (alias fixed [i % 8us])?;
+        ring [i % 64us] = alias n;
+        i += 1us;
+    }
+}
+
+/**
+ * Collect forever, counting the cycles
+ */
+fn driver () {
+    loop {
+        _yrt_gc_collect ();
+        atomic {
+            __CYCLES__ += 1;
+        }
+    }
+}
+
+fn crash (addr : usize) {
+    unsafe {
+        let dmut p = cast!{*usize} (addr);
+        *p = 1us;
+    }
+}
+
+/**
+ * Segfaults while threads store pointers and the collector runs its cycles: the process must abort
+ * with the trace of the fault, whatever lock a thread or the collector holds at that time
+ */
+fn main () {
+    let dmut pool = copy TaskPool (nbThreads-> NB_THREADS + 1u32);
+    for _ in 0u32 .. NB_THREADS {
+        pool:.submit (&store);
+    }
+
+    pool:.submit (&driver);
+    while started () < NB_THREADS || cycles () < CYCLES {}
+
+    crash (8us);
+}

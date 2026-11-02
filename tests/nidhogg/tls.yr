@@ -1,0 +1,125 @@
+use std::io;
+use etc::runtime::gc;
+
+def ROUNDS = 50;
+def LENGTH = 200;
+
+class Chain {
+    pub let v : i32;
+    pub let next : (&Chain)?;
+    pub self (v : i32, next : (&Chain)?) with v = v, next = next {}
+}
+
+@thread
+lazy mut __MINE__ : (&Chain)? = none;
+
+lazy mut __STOP__ : bool = false;
+
+fn stopped ()-> bool {
+    atomic {
+        __STOP__
+    }
+}
+
+/**
+ * Collect until main stops it
+ * @returns: the number of cycles it ran
+ */
+fn driver ()-> i32 {
+    let mut cycles = 0;
+    while !stopped () {
+        _yrt_gc_collect ();
+        cycles += 1;
+    }
+
+    cycles
+}
+
+/**
+ * Replace the chain of the calling thread by one of LENGTH elements counting down from
+ * seed + LENGTH - 1 to seed, held by its thread local alone once it returns
+ */
+fn keep (seed : i32) {
+    let mut head = copy Chain (seed, none);
+    for i in 1 .. LENGTH {
+        head = copy Chain (seed + i, head?);
+    }
+
+    __MINE__ = head?;
+}
+
+/**
+ * Overwrite the stack below the caller, where the frames of keep left words of the chain
+ * @returns: 0
+ */
+fn scrub ()-> u64 {
+    let dmut words = [1u64 ; 4096us];
+    for i in 0us .. words.len {
+        words [i] = 0u64;
+    }
+
+    words [4095us]
+}
+
+/**
+ * @returns: the sum of a garbage the collector reclaims, as much as the chain of a thread
+ */
+fn churn (seed : i32)-> i32 {
+    let mut sum = 0;
+    for i in 0 .. LENGTH * 4 {
+        let garbage = copy [seed + i ; 8us];
+        sum += garbage [7] % 2;
+    }
+
+    sum
+}
+
+fn ok (seed : i32)-> bool {
+    let mut n = 0;
+    let mut cur : (&Chain)? = __MINE__;
+    while let Ok (x) = cur {
+        if x.v != seed + LENGTH - 1 - n return false;
+        n += 1;
+        cur = x.next;
+    }
+
+    n == LENGTH
+}
+
+/**
+ * @returns: the number of rounds whose chain the thread found broken
+ */
+fn worker (id : i32)-> i32 {
+    let mut broken = 0;
+    for r in 0 .. ROUNDS {
+        let seed = (id * ROUNDS + r) * LENGTH;
+        keep (seed);
+        if scrub () != 0u64 broken += 1;
+        _yrt_gc_collect ();
+        churn (seed);
+        if !ok (seed) broken += 1;
+    }
+
+    broken
+}
+
+fn main () {
+    let d = spawn driver ();
+
+    let threads = [spawn worker (0), spawn worker (1), spawn worker (2), spawn worker (3),
+                   spawn worker (4), spawn worker (5), spawn worker (6), spawn worker (7)];
+
+    // the static TLS block of a spawned thread lies within its stack, that of main does not
+    let mut broken = worker (8);
+    for t in threads {
+        broken += t.value;
+    }
+
+    atomic {
+        __STOP__ = true;
+    }
+
+    let cycles = d.value;
+    println ("rounds: ", (threads.len + 1us) * cast!usize (ROUNDS), ", broken: ", broken);
+    println ("cycles ran: ", cycles > 0);
+}
