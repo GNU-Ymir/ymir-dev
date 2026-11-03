@@ -1,9 +1,9 @@
 use std::io;
-use core::reflect::factory;
+use core::reflect;
 
 tag registered {
     pub self {class C} () {
-        factory::register!{C}();
+        register!{C}();
     }
 }
 

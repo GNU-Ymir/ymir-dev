@@ -1,4 +1,4 @@
-use std::{conv, io, pack::_};
+use std::{conv, io, pack};
 
 #[packable]
 @abstract

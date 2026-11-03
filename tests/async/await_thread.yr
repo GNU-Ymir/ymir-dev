@@ -1,5 +1,5 @@
 use std::io;
-use std::time::dur;
+use std::time;
 
 class Wakes {
     pub let mut count : i32 = 0;
@@ -8,12 +8,12 @@ class Wakes {
 }
 
 fn slow (x : i32)-> i32 {
-    sleep (dur::millis (50u64));
+    sleep (millis (50u64));
     x * 2
 }
 
 fn slowVoid () {
-    sleep (dur::millis (50u64));
+    sleep (millis (50u64));
     println ("thread done");
 }
 
@@ -41,7 +41,7 @@ fn main () {
         println ("pending, ", wakes.count, " wakes");
     }
 
-    sleep (dur::millis (500u64));
+    sleep (millis (500u64));
     println ("thread finished, ", wakes.count, " wakes");
     if let Ok (r) = h.poll (&wakes:.wake) {
         println ("poll completed with ", r);

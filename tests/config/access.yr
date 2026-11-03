@@ -1,6 +1,7 @@
 use std::io;
-use std::config::{data, access, json, toml};
-use std::syntax::errors;
+use std::config;
+use std::config::{json, toml};
+use std::syntax;
 
 fn main () throws SyntaxError {
     let j = json::parse ("{\"server\" : {\"host\" : \"localhost\", \"ports\" : [80, 443], \"tls\" : true, \"ratio\" : 1}}");

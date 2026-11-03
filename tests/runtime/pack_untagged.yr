@@ -1,4 +1,4 @@
-use std::pack::_;
+use std::pack;
 
 #[packable]
 class Base {

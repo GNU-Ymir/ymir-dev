@@ -1,6 +1,6 @@
 use std::io;
-use std::concurrency::{process, task};
-use std::fs::errors;
+use std::concurrency;
+use std::fs;
 use etc::runtime::gc;
 
 def NB_THREADS = 4u32;

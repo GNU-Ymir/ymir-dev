@@ -1,4 +1,4 @@
-use std::concurrency::task;
+use std::concurrency;
 use etc::runtime::gc;
 
 def NB_THREADS = 8u32;

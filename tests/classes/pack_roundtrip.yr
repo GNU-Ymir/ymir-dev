@@ -1,4 +1,4 @@
-use std::{io, pack::_};
+use std::{io, pack};
 
 #[packable]
 record Point {

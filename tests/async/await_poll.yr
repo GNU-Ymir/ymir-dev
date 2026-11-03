@@ -1,5 +1,5 @@
 use std::io;
-use std::time::dur;
+use std::time;
 
 class Countdown {
     let mut _n : i32;
@@ -28,7 +28,7 @@ class Timer {
     pub self (delay : u64) with _delay = delay {}
 
     pub fn ring (mut self, waker : dg ()-> void) {
-        sleep (dur::millis (self._delay));
+        sleep (millis (self._delay));
         atomic self {
             self._done = true;
         }

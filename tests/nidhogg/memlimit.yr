@@ -1,6 +1,6 @@
 use std::io;
 use std::env;
-use std::concurrency::task;
+use std::concurrency;
 
 def NB_THREADS = 4u32;
 def ROUNDS = 4096;

@@ -1,6 +1,6 @@
 use std::io;
-use std::concurrency::task;
-use core::concurrency::sync::mutex;
+use std::concurrency;
+use core::concurrency;
 use etc::runtime::gc;
 
 def NB_THREADS = 8u32;
