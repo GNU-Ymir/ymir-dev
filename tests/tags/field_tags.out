@@ -1,0 +1,11 @@
+{"a-field": 1, "another_field": 2, "flag": true}
+{"a-field": 42, "another_field": 7, "flag": true}
+[a-field, a, A, another_field, flag]
+false
+{
+  "X": 3,
+  "Y": -4
+}
+[X, Y]
+true
+a-field

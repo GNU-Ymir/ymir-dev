@@ -1,0 +1,120 @@
+use std::io;
+use std::conv;
+
+tag rename (name: [c8]) {}
+
+tag skip {}
+
+tag snake_case {}
+
+tag also (name: [c8]) {}
+
+tag Serializable (pretty: bool = false) {
+    pub record apply {record R} {
+        pub fn serialize (self)-> [c8] {
+            let sep = cte if (pretty) { ",\n  " } else { ", " };
+            let mut res = cte if (pretty) { "{\n  " } else { "{" };
+            let mut first = true;
+            cte for i in 0us .. R::field_infos.len {
+                cte if (!__pragma!field_has_tag (R, R::field_infos [i].name, skip)) {
+                    if (!first) res = res ~ sep;
+                    first = false;
+                    res = res ~ "\"" ~ keyOf!{R, R::field_infos [i].name} () ~ "\": "
+                              ~ conv::to!{[c8]} (__pragma!field (self, cte { R::field_infos [i].name }));
+                }
+            }
+
+            res ~ cte if (pretty) { "\n}" } else { "}" }
+        }
+    }
+}
+
+tag Deserializable {
+    pub record apply {record R} {
+        pub fn accepted (self)-> [[c8]] {
+            let mut res: [[c8]] = [];
+            cte for i in 0us .. R::field_infos.len {
+                cte if (!__pragma!field_has_tag (R, R::field_infos [i].name, skip)) {
+                    res = res ~ [keyOf!{R, R::field_infos [i].name} ()];
+                    cte for a in __pragma!field_tags (R, R::field_infos [i].name, also) {
+                        res = res ~ [a.name];
+                    }
+                }
+            }
+
+            res
+        }
+
+        pub fn isPretty (self)-> bool {
+            __pragma!tag (R, Serializable).pretty
+        }
+    }
+}
+
+fn keyOf {R, F: [c8]} ()-> [c8] {
+    cte if (__pragma!field_has_tag (R, F, rename)) {
+        __pragma!field_tag (R, F, rename).name
+    } else cte if (__pragma!field_has_tag (R, F, snake_case)) {
+        toSnake (F)
+    } else {
+        F
+    }
+}
+
+fn toSnake (s: [c8])-> [c8] {
+    let mut res = "";
+    for c in s {
+        if (c >= 'A' && c <= 'Z') {
+            res = res ~ "_" ~ [cast!c8 (cast!u8 (c) + 32u8)];
+        } else {
+            res = res ~ [c];
+        }
+    }
+
+    res
+}
+
+#[Serializable, Deserializable]
+record Foo {
+    #[rename ("a-field"), also ("a"), also ("A")]
+    pub let mut a_field: i32 = 1;
+
+    #[snake_case]
+    pub let mut anotherField: u32 = 2u32;
+
+    #[skip]
+    pub let mut cache: i32 = 3;
+
+    pub let mut flag: bool = true;
+
+    pub self () {}
+}
+
+#[Serializable (pretty-> true), Deserializable]
+record Point {
+    #[rename ("X")]
+    pub let x: i32;
+
+    #[rename ("Y")]
+    pub let y: i32;
+
+    pub self (x: i32, y: i32) with x = x, y = y {}
+}
+
+fn main () {
+    let mut foo = Foo ();
+    println (foo.serialize ());
+    foo.a_field = 42;
+    foo.anotherField = 7u32;
+    println (foo.serialize ());
+    println (foo.accepted ());
+    println (foo.isPretty ());
+
+    let p = Point (3, -4);
+    println (p.serialize ());
+    println (p.accepted ());
+    println (p.isPretty ());
+
+    let site = __pragma!field_tag (Foo, "a_field", rename);
+    println (site.name);
+}
