@@ -1,0 +1,43 @@
+use std::io;
+use std::net;
+use std::net::tcp;
+
+fn listen () -> dmut &TcpListener throws TcpError {
+    for i in 0u16 .. 15u16 {
+        {
+            return copy TcpListener (SockAddr (Ipv4::LOCALHOST, 39144u16 + i));
+        } catch {
+            _ : &TcpError => {}
+        }
+    }
+
+    copy TcpListener (SockAddr (Ipv4::LOCALHOST, 39159u16))
+}
+
+fn main () throws TcpError, ResolveError {
+    println (resolve ("127.0.0.1"));
+    println (resolve ("::1"));
+
+    let ips = resolve ("localhost");
+    let mut loopback = ips.len != 0us;
+    for ip in ips {
+        loopback = loopback && ip.isLoopback ();
+    }
+    println (loopback);
+
+    {
+        resolve ("a..b");
+    } catch {
+        err : &ResolveError => println (err.code == ResolveErrorCode::UNKNOWN_HOST, " ", err.host);
+    }
+
+    let dmut server = listen ();
+    let dmut client = copy TcpStream::connect ("localhost", server.addr.port);
+    let dmut accepted = server:.accept ();
+    client:.send ("ping");
+    println (accepted:.receive!{[c8]} ());
+    println (client.addr.ip);
+
+    client:.dispose ();
+    accepted:.dispose ();
+}
