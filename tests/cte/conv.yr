@@ -1,0 +1,29 @@
+use std::{conv, io};
+
+fn digits (s: [c8])-> u32 {
+    let mut n = 0u32;
+    for c in s {
+        if (c >= '0' && c <= '9') {
+            n = n + 1u32;
+        }
+    }
+    n
+}
+
+fn main ()
+    throws CastFailure
+{
+    let i = cte ("-1234").to!{i32} ();
+    let u = cte ("255").to!{u8} ();
+    let h = cte ("ff").to!{i64, 16} ();
+    let f = cte ("1.5").to!{f64} ();
+    let g = cte ("0.1").to!{f32} ();
+    let d = cte digits ("a1b22c333");
+
+    println (i, " ", ("-1234").to!{i32} ());
+    println (u, " ", ("255").to!{u8} ());
+    println (h, " ", ("ff").to!{i64, 16} ());
+    println (f, " ", ("1.5").to!{f64} ());
+    println (g == ("0.1").to!{f32} ());
+    println (d, " ", digits ("a1b22c333"));
+}
