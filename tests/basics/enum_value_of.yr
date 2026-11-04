@@ -1,0 +1,32 @@
+use std::io;
+
+// E::__valueOf__ looks a field up by its name: folded when the name is known at
+// compile time, searched at run time otherwise, the fields a tag appends included
+tag counted (step: i32) {
+    pub enum apply {enum E}
+    | COUNT = cast!{i32} (E::__members__.len)
+    | NEXT = COUNT + step;
+}
+
+#[counted (10)]
+enum Color
+| RED = 0
+| GREEN = 1;
+
+fn show (name: [c8]) {
+    if let Ok(c) = Color::__valueOf__ (name) {
+        let v: i32 = c;
+        println (name, " = ", v);
+    } else {
+        println (name, " is not a color");
+    }
+}
+
+fn main () {
+    show ("GREEN");
+    loop {
+        let name = read!{[c8]} ();
+        if name.len == 0us break;
+        show (name);
+    }
+}
