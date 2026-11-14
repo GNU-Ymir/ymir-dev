@@ -10,6 +10,7 @@ uv run exec main.yr -o main   # target/bin/gyc -iprefix target <args>
 ymirc main.yr -o main         # the same, from any directory
 uv run tests                  # compile and run tests/, checking their expected outputs
 uv run bench                  # time bench/ with ymirc, gyc, C++ and Python, into an HTML report
+uv run install-emacs          # link editors/emacs/yr-mode.el into ~/.elisp (--dir to choose)
 ```
 
 `preview` builds whatever each repo has checked out, branch and uncommitted changes included. When
