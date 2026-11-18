@@ -1,0 +1,155 @@
+in __lib__;
+
+use std::io;
+use std::time;
+use std::concurrency;
+use etc::runtime::gc;
+
+record RUsage {
+    pub let mut utime_sec : i64 = 0i64;
+    pub let mut utime_usec : i64 = 0i64;
+    pub let mut stime_sec : i64 = 0i64;
+    pub let mut stime_usec : i64 = 0i64;
+    pub let mut maxrss : i64 = 0i64;
+    pub let mut ixrss : i64 = 0i64;
+    pub let mut idrss : i64 = 0i64;
+    pub let mut isrss : i64 = 0i64;
+    pub let mut minflt : i64 = 0i64;
+    pub let mut majflt : i64 = 0i64;
+    pub let mut nswap : i64 = 0i64;
+    pub let mut inblock : i64 = 0i64;
+    pub let mut oublock : i64 = 0i64;
+    pub let mut msgsnd : i64 = 0i64;
+    pub let mut msgrcv : i64 = 0i64;
+    pub let mut nsignals : i64 = 0i64;
+    pub let mut nvcsw : i64 = 0i64;
+    pub let mut nivcsw : i64 = 0i64;
+
+    pub self () {}
+}
+
+extern (C) fn getrusage (who: i32, dmut usage: *RUsage)-> i32;
+
+fn usage ()-> RUsage {
+    let mut r = RUsage ();
+    getrusage (0, alias &r);
+    r
+}
+
+/**
+ * Prints the GC bytes allocated per task and the context switches of one more, untimed, run
+ */
+fn measure (work: dg ()-> void, tasks: u64) {
+    let bytes = _yrt_gc_allocated_bytes ();
+    let before = usage ();
+    work ();
+    let after = usage ();
+    let allocated = _yrt_gc_allocated_bytes () - bytes;
+
+    println ("metric bytes_per_task ", cast!f64 (allocated) / cast!f64 (tasks));
+    println ("metric voluntary_switches ", after.nvcsw - before.nvcsw);
+    println ("metric involuntary_switches ", after.nivcsw - before.nivcsw);
+}
+
+fn cpuMillis (r: RUsage)-> f64 {
+    cast!f64 (r.utime_sec + r.stime_sec) * 1000.0 + cast!f64 (r.utime_usec + r.stime_usec) / 1000.0
+}
+
+/**
+ * A leaf a task parks on until a thread outside the pool opens it
+ */
+class Gate {
+    let mut _opened: bool = false;
+    let mut _waker: (dg ()-> void)? = none;
+
+    pub self () {}
+
+    pub fn poll (mut self, waker: dg ()-> void)-> bool? {
+        atomic self {
+            if self._opened return true?;
+            self._waker = waker?;
+        }
+
+        none
+    }
+
+    pub fn open (mut self) {
+        let mut waker: (dg ()-> void)? = none;
+        atomic self {
+            self._opened = true;
+            waker = self._waker;
+            self._waker = none;
+        }
+
+        if let Ok (w) = waker {
+            w ();
+        }
+    }
+
+    pub fn parked (self)-> bool {
+        atomic self {
+            return self._waker.hasValue;
+        }
+    }
+}
+
+async parked (dmut gate: &Gate) {
+    await alias gate;
+}
+
+/**
+ * Submits a task per gate, and returns once every one of them is parked
+ */
+fn park (dmut pool: &TaskPool, tasks: u64)-> dmut [&Gate] {
+    let dmut gates = copy [copy Gate () for _ in 0u64 .. tasks];
+    for i in 0us .. gates.len {
+        pool:.submit (parked (alias gates[i]));
+    }
+
+    for g in gates {
+        while !g.parked () {
+            sleep (micros (100u64));
+        }
+    }
+
+    alias gates
+}
+
+fn wake (dmut pool: &TaskPool, dmut gates: [&Gate]) {
+    for i in 0us .. gates.len {
+        gates[i]:.open ();
+    }
+
+    pool:.join ();
+}
+
+fn main () {
+    let tasks = 10_000u64;
+    let dmut pool = copy TaskPool (nbThreads-> 4u32);
+
+    for i in 0u32 .. 23u32 {
+        let dmut gates = park (alias pool, tasks);
+        let start = Instant::now ();
+        wake (alias pool, alias gates);
+        let end = Instant::now ();
+        if (i >= 2u32) {
+            println (cast!f64 ((end - start).allMicros) / 1000.0);
+        }
+    }
+
+    {
+        let dmut gates = park (alias pool, tasks);
+        let before = usage ();
+        sleep (millis (200u64));
+        let after = usage ();
+        println ("metric parked_cpu_ms ", cpuMillis (after) - cpuMillis (before));
+        wake (alias pool, alias gates);
+    }
+
+    measure (copy || => {
+        let dmut gates = park (alias pool, tasks);
+        wake (alias pool, alias gates);
+    }, tasks);
+
+    pool:.dispose ();
+}

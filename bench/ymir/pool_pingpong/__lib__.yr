@@ -1,0 +1,102 @@
+in __lib__;
+
+use std::io;
+use std::time;
+use std::concurrency;
+use etc::runtime::gc;
+
+record RUsage {
+    pub let mut utime_sec : i64 = 0i64;
+    pub let mut utime_usec : i64 = 0i64;
+    pub let mut stime_sec : i64 = 0i64;
+    pub let mut stime_usec : i64 = 0i64;
+    pub let mut maxrss : i64 = 0i64;
+    pub let mut ixrss : i64 = 0i64;
+    pub let mut idrss : i64 = 0i64;
+    pub let mut isrss : i64 = 0i64;
+    pub let mut minflt : i64 = 0i64;
+    pub let mut majflt : i64 = 0i64;
+    pub let mut nswap : i64 = 0i64;
+    pub let mut inblock : i64 = 0i64;
+    pub let mut oublock : i64 = 0i64;
+    pub let mut msgsnd : i64 = 0i64;
+    pub let mut msgrcv : i64 = 0i64;
+    pub let mut nsignals : i64 = 0i64;
+    pub let mut nvcsw : i64 = 0i64;
+    pub let mut nivcsw : i64 = 0i64;
+
+    pub self () {}
+}
+
+extern (C) fn getrusage (who: i32, dmut usage: *RUsage)-> i32;
+
+fn usage ()-> RUsage {
+    let mut r = RUsage ();
+    getrusage (0, alias &r);
+    r
+}
+
+fn runBench (work: dg ()-> void) {
+    let mut i = 0u32;
+    while i < 2u32 { work (); i += 1u32; }
+
+    i = 0u32;
+    while i < 21u32 {
+        let start = Instant::now ();
+        work ();
+        let end = Instant::now ();
+        println (cast!f64 ((end - start).allMicros) / 1000.0);
+        i += 1u32;
+    }
+}
+
+/**
+ * Prints the GC bytes allocated per `unit` and the context switches of one more, untimed, run
+ */
+fn measure (work: dg ()-> void, count: u64, unit: [c8]) {
+    let bytes = _yrt_gc_allocated_bytes ();
+    let before = usage ();
+    work ();
+    let after = usage ();
+    let allocated = _yrt_gc_allocated_bytes () - bytes;
+
+    println ("metric bytes_per_", unit, " ", cast!f64 (allocated) / cast!f64 (count));
+    println ("metric voluntary_switches ", after.nvcsw - before.nvcsw);
+    println ("metric involuntary_switches ", after.nivcsw - before.nivcsw);
+}
+
+async ping (dmut out: &AsyncMailBox!{u64}, dmut inbox: &AsyncMailBox!{u64}, n: u64) {
+    for i in 0u64 .. n {
+        out:.send (i);
+        await alias inbox:.receive ();
+    }
+}
+
+async pong (dmut inbox: &AsyncMailBox!{u64}, dmut out: &AsyncMailBox!{u64}, n: u64) {
+    for _ in 0u64 .. n {
+        if let Ok (v) = await alias inbox:.receive () {
+            out:.send (v);
+        }
+    }
+}
+
+fn main () {
+    let pairs = 4u64;
+    let rounds = 50_000u64;
+    let dmut pool = copy TaskPool (nbThreads-> 4u32);
+
+    let f : dg ()-> void = copy || => {
+        for _ in 0u64 .. pairs {
+            let dmut there = copy AsyncMailBox!{u64} ();
+            let dmut back = copy AsyncMailBox!{u64} ();
+            pool:.submit (ping (alias there, alias back, rounds));
+            pool:.submit (pong (alias there, alias back, rounds));
+        }
+
+        pool:.join ();
+    };
+
+    runBench (f);
+    measure (f, pairs * rounds * 2u64, "message");
+    pool:.dispose ();
+}

@@ -40,10 +40,11 @@ CATEGORY = {
     "map_insert": "map", "map_lookup": "map",
     "virtual_dispatch": "oop", "closures": "closures",
     "exceptions": "exceptions", "concurrency": "concurrency",
-    "pool_spawn": "concurrency", "pool_compute": "concurrency",
+    "pool_spawn": "concurrency", "pool_compute": "concurrency", "pool_yield": "concurrency",
+    "pool_pingpong": "concurrency", "pool_fanout": "concurrency", "pool_external": "concurrency",
 }
 BENCHES = list(CATEGORY)
-MULTI_THREADED = {"concurrency", "pool_spawn", "pool_compute"}
+MULTI_THREADED = {"concurrency"} | {b for b in CATEGORY if b.startswith("pool_")}
 # The arguments a benchmark runs with, one row each, named <bench>/<suffix>.
 VARIANTS = {"pool_compute": [("1w", ["1"]), ("2w", ["2"]), ("4w", ["4"])]}
 WARMUP, REPS = 2, 21

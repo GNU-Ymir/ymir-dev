@@ -69,7 +69,7 @@ interleaved and flip the ymirc/gyc order each time, so a drift in the machine hi
 alike.
 
 Single-threaded benchmarks are pinned to the fastest CPU but cpu0 (`--cpu N` picks one), and the
-multi-threaded ones (`concurrency`, `pool_spawn`, `pool_compute`) to the performance cores of a
+multi-threaded ones (`concurrency` and the `pool_*` ones) to the performance cores of a
 hybrid CPU (`/sys/devices/cpu_core/cpus`; `--mt-cpus LIST` picks a taskset list, and they run
 unpinned on a CPU that is not hybrid). `--no-pin` turns both off. A benchmark whose round medians differ by more than 25% for a compiled language is
 marked noisy and left out of the summary. On a power-saving profile, tight loops can run 3× slower
