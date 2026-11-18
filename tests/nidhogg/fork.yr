@@ -68,7 +68,7 @@ fn main ()
 {
     let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
     for i in 0 .. cast!i32 (NB_THREADS) {
-        pool:.submit (copy || => mutate (i));
+        pool:.submit ((copy async || => mutate (i)) ());
     }
 
     let mut exited = 0;

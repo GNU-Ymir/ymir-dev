@@ -79,7 +79,7 @@ fn finished ()-> u32 {
 fn main () {
     let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
     for i in 0 .. cast!i32 (NB_THREADS) {
-        pool:.submit (copy || => worker (i));
+        pool:.submit ((copy async || => worker (i)) ());
     }
 
     let mut cycles = 0;

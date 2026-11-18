@@ -102,7 +102,7 @@ fn worker () {
 fn main () {
     let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
     for _ in 0u32 .. NB_THREADS {
-        pool:.submit (&worker);
+        pool:.submit ((async || => worker ()) ());
     }
 
     while started () < NB_THREADS {}

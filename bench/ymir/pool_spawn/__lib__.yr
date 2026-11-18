@@ -73,7 +73,7 @@ fn main () {
 
     let f : dg ()-> void = copy || => {
         for _ in 0u64 .. tasks {
-            pool:.submit (|| => { emptyTask (); });
+            pool:.submit ((async || => { emptyTask (); }) ());
         }
 
         pool:.join ();

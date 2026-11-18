@@ -167,7 +167,7 @@ fn main () {
 
     let dmut pool = copy TaskPool (nbThreads-> NB_THREADS);
     for i in 0 .. cast!i32 (NB_THREADS) {
-        pool:.submit (copy || => churn (i * CHURN));
+        pool:.submit ((copy async || => churn (i * CHURN)) ());
     }
 
     for _ in 0 .. 20 {

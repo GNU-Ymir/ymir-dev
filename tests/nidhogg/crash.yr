@@ -70,10 +70,10 @@ fn crash (addr : usize) {
 fn main () {
     let dmut pool = copy TaskPool (nbThreads-> NB_THREADS + 1u32);
     for _ in 0u32 .. NB_THREADS {
-        pool:.submit (&store);
+        pool:.submit ((async || => store ()) ());
     }
 
-    pool:.submit (&driver);
+    pool:.submit ((async || => driver ()) ());
     while started () < NB_THREADS || cycles () < CYCLES {}
 
     crash (8us);

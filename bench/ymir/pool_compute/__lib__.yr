@@ -98,7 +98,7 @@ fn main (args: [[c8]]) {
 
     let f : dg ()-> void = copy || => {
         for t in 0u64 .. tasks {
-            pool:.submit (copy || => { parts[t] = computePi (t * slice, (t + 1u64) * slice, tasks * slice); });
+            pool:.submit ((copy async || => { parts[t] = computePi (t * slice, (t + 1u64) * slice, tasks * slice); }) ());
         }
 
         pool:.join ();
