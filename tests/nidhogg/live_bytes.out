@@ -1,0 +1,4 @@
+live once a cycle ended: true
+an action leaking nothing leaves it flat: true
+an action leaking a MiB grows it by a MiB each time: true, 128 blocks kept
+NIDHOGG_STATS=2 prints a line per cycle: true
