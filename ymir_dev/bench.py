@@ -15,6 +15,7 @@ build/bench/logs/.
 
 import argparse
 import datetime
+import fnmatch
 import json
 import os
 import re
@@ -229,7 +230,8 @@ def is_noisy(results: dict) -> bool:
 
 def main() -> None:
     p = argparse.ArgumentParser(prog="bench", description=__doc__.splitlines()[0])
-    p.add_argument("benches", nargs="*", metavar="NAME", help=f"benchmarks to run (default: all of {', '.join(BENCHES)})")
+    p.add_argument("benches", nargs="*", metavar="NAME",
+                   help=f"benchmarks to run, shell-style patterns such as 'pool_*' (default: all of {', '.join(BENCHES)})")
     p.add_argument("--gyc", metavar="PATH|VERSION", help="gyc to compare against: a binary, or a gymir release to fetch (default: gyc on PATH)")
     p.add_argument("--rounds", type=int, default=3, help="runs of each benchmark per language (default: 3)")
     p.add_argument("-O", dest="opt", default="3", help="optimisation level of the Ymir and C++ builds (default: 3)")
@@ -241,10 +243,10 @@ def main() -> None:
     p.add_argument("-j", type=int, default=os.cpu_count() or 4, help="parallel builds")
     args = p.parse_args()
 
-    unknown = [b for b in args.benches if b not in CATEGORY]
+    unknown = [b for b in args.benches if not fnmatch.filter(BENCHES, b)]
     if unknown:
         die(f"unknown benchmarks: {', '.join(unknown)}")
-    benches = args.benches or BENCHES
+    benches = [b for b in BENCHES if any(fnmatch.fnmatch(b, pat) for pat in args.benches)] if args.benches else BENCHES
     if args.rounds < 1:
         die("--rounds must be at least 1")
     if shutil.which("g++") is None:

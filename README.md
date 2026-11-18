@@ -52,6 +52,7 @@ uv run bench                          # every benchmark, the preview against the
 uv run bench --gyc 1.3.0              # against a gymir release, fetched into build/bench/gyc-1.3.0
 uv run bench --gyc /path/to/gyc       # against any gyc binary
 uv run bench map_insert map_lookup    # only these benchmarks
+uv run bench 'pool_*'                 # the benchmarks matching a shell-style pattern
 ```
 
 `bench/` holds each benchmark once per language: `ymir/<name>/__lib__.yr`, `cpp/<name>.cpp` and
