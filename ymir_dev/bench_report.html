@@ -526,6 +526,7 @@ function drawTable() {
       if (!r) { td.className = "missing"; td.textContent = "—"; continue; }
       html("span", "med", fmtMs(r.median), td);
       html("span", "iqr", `${fmtMs(r.p25)}–${fmtMs(r.p75)}`, td);
+      for (const [m, v] of Object.entries(r.metrics || {})) html("span", "iqr", `${m.replaceAll("_", " ")} ${+v.toPrecision(4)}`, td);
     }
     const r = tr.insertCell();
     if (has(b, "ymirc", "gyc")) {
@@ -556,8 +557,12 @@ function drawHeader() {
   for (const w of R.host.warnings) html("span", "chip warn", w, meta);
 
   const notes = document.getElementById("notes");
-  const pin = R.host.cpu === null ? "Nothing was pinned to a CPU."
-    : `Every benchmark but concurrency ran pinned to CPU ${R.host.cpu} with taskset. concurrency ran unpinned.`;
+  const mt = R.host.multi_threaded || [];
+  const single = R.host.cpu === null ? "Single-threaded benchmarks were not pinned to a CPU."
+    : `Single-threaded benchmarks ran pinned to CPU ${R.host.cpu} with taskset.`;
+  const multi = !mt.length ? "" : R.host.mt_cpus ? ` ${mt.join(", ")} ran pinned to CPUs ${R.host.mt_cpus}.`
+    : ` ${mt.join(", ")} ran unpinned.`;
+  const pin = single + multi;
   const items = [
     `Each program does ${R.warmup} warmup iterations, then prints ${R.reps} timed ones. Every benchmark ran ${R.rounds} times, ` +
       "interleaved, with the ymirc/gyc order flipped on each round.",
