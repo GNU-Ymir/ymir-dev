@@ -1,0 +1,46 @@
+use std::io;
+
+record Point {
+    pub let mut x: u64;
+    pub let mut y: u64;
+    pub self (x: u64, y: u64) with x = x, y = y {}
+}
+
+fn put (dmut p: *u64, v: u64) {
+    unsafe { *p = v; }
+}
+
+fn place (dmut p: *Point, x: u64, y: u64) {
+    unsafe {
+        (*p).x = x;
+        (*p).y = y;
+    }
+}
+
+// the address of an element of a static array is the one of the element, and a write through it changes the array
+fn main () {
+    let dmut a = [0u64; 4];
+    put (alias &a[1], 7u64);
+    let dmut p = alias &a[3];
+    put (alias p, 9u64);
+    println ("a = ", a);
+    unsafe {
+        println ("&a[1] - &a = ", cast!usize (alias &a[1]) - cast!usize (alias &a));
+    }
+
+    let dmut points = [Point (0u64, 0u64); 3];
+    for i in 0us .. 3us {
+        place (alias &points[i], cast!u64 (i), cast!u64 (i) * 10u64);
+    }
+    put (alias &points[2].y, 42u64);
+    for i in 0us .. 3us {
+        println ("points[", i, "] = (", points[i].x, ", ", points[i].y, ")");
+    }
+    unsafe {
+        println ("&points[2] - &points = ", cast!usize (alias &points[2]) - cast!usize (alias &points));
+    }
+
+    let dmut grid = [[0u64; 2]; 2];
+    put (alias &grid[1][0], 5u64);
+    println ("grid = ", grid);
+}

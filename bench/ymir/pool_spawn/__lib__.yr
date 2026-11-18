@@ -1,0 +1,85 @@
+in __lib__;
+
+use std::io;
+use std::time;
+use std::concurrency;
+use etc::runtime::gc;
+
+record RUsage {
+    pub let mut utime_sec : i64 = 0i64;
+    pub let mut utime_usec : i64 = 0i64;
+    pub let mut stime_sec : i64 = 0i64;
+    pub let mut stime_usec : i64 = 0i64;
+    pub let mut maxrss : i64 = 0i64;
+    pub let mut ixrss : i64 = 0i64;
+    pub let mut idrss : i64 = 0i64;
+    pub let mut isrss : i64 = 0i64;
+    pub let mut minflt : i64 = 0i64;
+    pub let mut majflt : i64 = 0i64;
+    pub let mut nswap : i64 = 0i64;
+    pub let mut inblock : i64 = 0i64;
+    pub let mut oublock : i64 = 0i64;
+    pub let mut msgsnd : i64 = 0i64;
+    pub let mut msgrcv : i64 = 0i64;
+    pub let mut nsignals : i64 = 0i64;
+    pub let mut nvcsw : i64 = 0i64;
+    pub let mut nivcsw : i64 = 0i64;
+
+    pub self () {}
+}
+
+extern (C) fn getrusage (who: i32, dmut usage: *RUsage)-> i32;
+
+fn usage ()-> RUsage {
+    let mut r = RUsage ();
+    getrusage (0, alias &r);
+    r
+}
+
+fn runBench (work: dg ()-> void) {
+    let mut i = 0u32;
+    while i < 2u32 { work (); i += 1u32; }
+
+    i = 0u32;
+    while i < 21u32 {
+        let start = Instant::now ();
+        work ();
+        let end = Instant::now ();
+        println (cast!f64 ((end - start).allMicros) / 1000.0);
+        i += 1u32;
+    }
+}
+
+/**
+ * Prints the GC bytes allocated per task and the context switches of one more, untimed, run
+ */
+fn measure (work: dg ()-> void, tasks: u64) {
+    let bytes = _yrt_gc_allocated_bytes ();
+    let before = usage ();
+    work ();
+    let after = usage ();
+    let allocated = _yrt_gc_allocated_bytes () - bytes;
+
+    println ("metric bytes_per_task ", cast!f64 (allocated) / cast!f64 (tasks));
+    println ("metric voluntary_switches ", after.nvcsw - before.nvcsw);
+    println ("metric involuntary_switches ", after.nivcsw - before.nivcsw);
+}
+
+fn emptyTask () {}
+
+fn main () {
+    let tasks = 1_000_000u64;
+    let dmut pool = copy TaskPool (nbThreads-> 4u32);
+
+    let f : dg ()-> void = copy || => {
+        for _ in 0u64 .. tasks {
+            pool:.submit (|| => { emptyTask (); });
+        }
+
+        pool:.join ();
+    };
+
+    runBench (f);
+    measure (f, tasks);
+    pool:.dispose ();
+}

@@ -55,14 +55,19 @@ uv run bench map_insert map_lookup    # only these benchmarks
 ```
 
 `bench/` holds each benchmark once per language: `ymir/<name>/__lib__.yr`, `cpp/<name>.cpp` and
-`python/<name>.py`. Every program times itself (2 warmup iterations, then 21 timed ones, one ms
-value per line). The preview gyc (`ymirc`), the other gyc and `g++` build them at `-O3` (`-O` to
+`python/<name>.py` (optional, a benchmark without one is not run in Python). Every program times
+itself (2 warmup iterations, then 21 timed ones, one ms value per line), and may print
+`metric <name> <value>` lines measured outside the timed iterations, which the report shows under
+the timings (the median over the rounds). A benchmark listed in `VARIANTS` (`ymir_dev/bench.py`)
+runs once per set of arguments, as one row each (`pool_compute/1w`, `/2w`, `/4w`: its workers). The preview gyc (`ymirc`), the other gyc and `g++` build them at `-O3` (`-O` to
 change it). Each benchmark then runs `--rounds` times per language (3 by default). The rounds are
 interleaved and flip the ymirc/gyc order each time, so a drift in the machine hits both compilers
 alike.
 
-Single-threaded benchmarks are pinned to the fastest CPU but cpu0 (`--cpu N` picks one, `--no-pin`
-turns it off). A benchmark whose round medians differ by more than 25% for a compiled language is
+Single-threaded benchmarks are pinned to the fastest CPU but cpu0 (`--cpu N` picks one), and the
+multi-threaded ones (`concurrency`, `pool_spawn`, `pool_compute`) to the performance cores of a
+hybrid CPU (`/sys/devices/cpu_core/cpus`; `--mt-cpus LIST` picks a taskset list, and they run
+unpinned on a CPU that is not hybrid). `--no-pin` turns both off. A benchmark whose round medians differ by more than 25% for a compiled language is
 marked noisy and left out of the summary. On a power-saving profile, tight loops can run 3× slower
 from one run to the next. The report flags that setting, and `powerprofilesctl set performance`
 before a run gives numbers worth comparing.
