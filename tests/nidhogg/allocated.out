@@ -1,0 +1,4 @@
+the main thread is counted: true
+a joined thread is counted: true
+what a live thread did not account for yet is counted: true
+a collection frees nothing from the count: true

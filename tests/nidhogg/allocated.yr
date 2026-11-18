@@ -1,0 +1,53 @@
+use std::io;
+use core::concurrency;
+use etc::runtime::gc;
+
+def MIB = 1_048_576u64;
+
+/**
+ * Allocates `nb` blocks of 64KiB, left unreachable, each taking from 64 to 80KiB of the heap
+ */
+fn churn (nb : u64) {
+    for _ in 0u64 .. nb {
+        let dmut s = core::types::array::allocArray!u8 (65536us);
+        s [0] = 1u8;
+    }
+}
+
+/**
+ * Allocates 10KiB, less than a thread accounts for at once, then waits for `go`
+ */
+fn pending (dmut ready : &Semaphore, dmut go : &Semaphore) {
+    for _ in 0 .. 10 {
+        let dmut s = core::types::array::allocArray!u8 (1024us);
+        s [0] = 1u8;
+    }
+
+    ready:.post ();
+    go:.wait ();
+}
+
+fn main () {
+    let a = _yrt_gc_allocated_bytes ();
+    churn (1024u64);
+    let b = _yrt_gc_allocated_bytes ();
+    println ("the main thread is counted: ", b - a >= 64u64 * MIB && b - a <= 80u64 * MIB);
+
+    let th = spawn churn (512u64);
+    th.value;
+    let c = _yrt_gc_allocated_bytes ();
+    println ("a joined thread is counted: ", c - b >= 32u64 * MIB && c - b <= 40u64 * MIB);
+
+    let dmut ready = copy Semaphore ();
+    let dmut go = copy Semaphore ();
+    let waiting = spawn pending (alias ready, alias go);
+    ready:.wait ();
+    let d = _yrt_gc_allocated_bytes ();
+    println ("what a live thread did not account for yet is counted: ", d - c >= 10240u64 && d - c < MIB);
+    go:.post ();
+    waiting.value;
+
+    _yrt_gc_collect ();
+    let e = _yrt_gc_allocated_bytes ();
+    println ("a collection frees nothing from the count: ", e >= d);
+}
