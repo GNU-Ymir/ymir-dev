@@ -1,0 +1,34 @@
+use std::io;
+use std::concurrency;
+
+async square (x: i32)-> i32 {
+    await;
+    x * x
+}
+
+async sum (dmut pool: &TaskPool, n: i32)-> i32 {
+    let dmut handles = copy [pool:.submit (square (i)) for i in 0 .. n];
+    let mut total = 0;
+    for i in 0us .. handles.len {
+        total += await alias handles[i];
+    }
+
+    total
+}
+
+async report (dmut h: &TaskHandle!{i32}, name: [c8]) {
+    println (name, " sees ", await alias h);
+}
+
+fn main () {
+    let dmut pool = copy TaskPool (nbThreads-> 1u32);
+    let dmut h = pool:.submit (sum (alias pool, 100));
+    pool:.submit (report (alias h, "first"));
+    pool:.submit (report (alias h, "second"));
+    pool:.join ();
+
+    println ("waited ", h:.wait ());
+    let dmut v = pool:.submit (square (3));
+    println ("square ", v:.wait ());
+    pool:.dispose ();
+}
