@@ -1,0 +1,110 @@
+use std::io;
+use std::env;
+use std::fs;
+use std::concurrency;
+use etc::runtime::gc;
+
+def MIB = 1_048_576u64;
+
+class Registry {
+    pub let mut items : [[u8]] = [];
+    pub self () {}
+
+    pub fn add (mut self, x : [u8]) {
+        self.items ~= [x];
+    }
+}
+
+/**
+ * Allocates a MiB in blocks of 64KiB, kept by `reg` iif `keep`
+ */
+fn action (dmut reg : &Registry, keep : bool) {
+    for _ in 0 .. 16 {
+        let dmut s = core::types::array::allocArray!u8 (65536us);
+        s [0] = 1u8;
+        if (keep) reg:.add (s);
+    }
+}
+
+/**
+ * @returns: the bytes left reachable after each of `nb` repetitions of `action`, each followed by
+ * a collection
+ */
+fn repeat (dmut reg : &Registry, keep : bool, nb : u32)-> [u64] {
+    let mut res : [u64] = [];
+    for _ in 0u32 .. nb {
+        action (alias reg, keep);
+        _yrt_gc_collect ();
+        res ~= [_yrt_gc_live_bytes ()];
+    }
+
+    res
+}
+
+fn count (text : [c8], what : [c8])-> usize {
+    let mut n = 0us;
+    let mut i = 0us;
+    while i + what.len <= text.len {
+        if (text [i .. i + what.len] == what) n += 1us;
+        i += 1us;
+    }
+
+    n
+}
+
+fn child () {
+    let dmut reg = copy Registry ();
+    action (alias reg, true);
+    _yrt_gc_collect ();
+    _yrt_gc_collect ();
+    println (reg.items.len);
+}
+
+/**
+ * @returns: the standard error of this program run again with NIDHOGG_STATS=2
+ */
+fn statsOfChild ()-> [c8]
+    throws FsError
+{
+    setVar ("NIDHOGG_STATS", "2");
+    let dmut proc = copy SubProcess ("/proc/self/exe"s8, copy ["child"s8]);
+    proc:.start ();
+    proc:.wait ();
+
+    // the pipe is not blocking, and holds the little the child writes
+    let mut err : [c8] = [];
+    while let Ok (c) = proc.stderr:.read!c8 ()? {
+        err ~= [c];
+    }
+
+    err
+}
+
+fn main (args : [[c8]]) {
+    if (args.len > 1us) {
+        child ();
+        return;
+    }
+
+    let dmut reg = copy Registry ();
+    _yrt_gc_collect ();
+    let base = _yrt_gc_live_bytes ();
+    println ("live once a cycle ended: ", base > 0u64);
+
+    let dropped = repeat (alias reg, false, 8u32);
+    println ("an action leaking nothing leaves it flat: ", dropped [dropped.len - 1us] < base + 2u64 * MIB);
+
+    let kept = repeat (alias reg, true, 8u32);
+    let mut grows = true;
+    for i in 1us .. kept.len {
+        if (kept [i] < kept [i - 1us] + MIB - 65536u64) grows = false;
+    }
+    println ("an action leaking a MiB grows it by a MiB each time: ", grows, ", ", reg.items.len, " blocks kept");
+
+    match statsOfChild ()? {
+        Ok (err : [c8]) => {
+            println ("NIDHOGG_STATS=2 prints a line per cycle: ", count (err, "nidhogg: cycle "s8) >= 2us);
+        }
+        Err (e : _) => println ("cannot run the child: ", e);
+    }
+}
