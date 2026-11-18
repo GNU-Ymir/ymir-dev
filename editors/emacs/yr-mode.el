@@ -39,7 +39,7 @@
 (defvar yr-top-item-beg-re
   (concat "\\s-*\\(?:priv\\|pub\\)?\\s-*"
           (regexp-opt
-           '("enum" "record" "entity" "mod" "class" "union" "throw" "mod" "use" "def" "static" "impl" "over" "fn" "tuple" "atomic"
+           '("enum" "record" "entity" "mod" "class" "union" "throw" "mod" "use" "def" "static" "impl" "over" "fn" "async" "tuple" "atomic"
              "extern" "trait" "tag" "__version" "__test"))
 	  "\\_>"))
 
@@ -596,7 +596,8 @@ format string."
     "prv" "pub" "prot" "__version" "__test" "union"
     "ref" "move" "return" "throws" "fn" "__pragma"
     "self" "static" "record" "entity" "super" "panic"
-    "trait" "tag" "use" "while" "atomic" "yield"))
+    "trait" "tag" "use" "while" "atomic" "yield"
+    "async" "await"))
 
 (defconst yr-special-types
   '("u8" "i8"
@@ -738,7 +739,8 @@ the desired identifiers), but does not match type annotations \"foo::<\"."
              ("mod" . font-lock-constant-face)
              ("use" . font-lock-constant-face)
              ("def" . font-lock-function-name-face)
-	     ("over" . font-lock-function-name-face)))))
+	     ("over" . font-lock-function-name-face)
+             ("async" . font-lock-function-name-face)))))
 
 (defun yr-syntax-class-before-point ()
   (when (> (point) 1)
@@ -787,7 +789,7 @@ the desired identifiers), but does not match type annotations \"foo::<\"."
                    (yr-rewind-irrelevant)
                    (yr-rewind-type-param-list)
                    (cond
-                       ((yr-looking-back-symbols '("def" "trait" "enum" "class" "mod" "record" "union" "entity" "impl" "tag")) ident-pos)
+                       ((yr-looking-back-symbols '("def" "async" "trait" "enum" "class" "mod" "record" "union" "entity" "impl" "tag")) ident-pos)
 
                        ((equal 5 (yr-syntax-class-before-point))
                         (backward-sexp)
@@ -828,7 +830,7 @@ the desired identifiers), but does not match type annotations \"foo::<\"."
       (cond
 
        ;; Certain keywords always introduce expressions
-       ((yr-looking-back-symbols '("if" "while" "match" "return" "box" "in" "is")) t)
+       ((yr-looking-back-symbols '("if" "while" "match" "return" "box" "in" "is" "await")) t)
 
        ;; "as" introduces a type
        ((yr-looking-back-symbols '("as")) nil)
@@ -1343,7 +1345,7 @@ beginning of the format string it is in, so that it is propertized from its
 (defvar yr-imenu-generic-expression
   (append (mapcar #'(lambda (x)
                       (list (capitalize x) (yr-re-item-def-imenu x) 1))
-                  '("enum" "union" "record" "entity" "class" "mod" "def" "impl" "trait" "tag" "over" "throw" "yield"))
+                  '("enum" "union" "record" "entity" "class" "mod" "def" "impl" "trait" "tag" "over" "throw" "yield" "async"))
           `(("Macro" ,(yr-re-item-def-imenu "macro_rules!") 1)))
   "Value for `imenu-generic-expression' in Yr mode.
 
@@ -1715,7 +1717,7 @@ See `compilation-error-regexp-alist' for help on their format.")
   (yr-playpen-region (point-min) (point-max)))
 
 (defconst yr-decl-kinds
-  '("enum" "record" "entity" "class" "mod" "def" "impl" "over" "union" "trait" "tag" "throw" "yield")
+  '("enum" "record" "entity" "class" "mod" "def" "impl" "over" "union" "trait" "tag" "throw" "yield" "async")
   "Yr keywords that introduce a top-level declaration with a name,
 importd by `yr-find-symbol-definition' to recognize declaration
 sites.")
