@@ -11,6 +11,11 @@ static double compute_pi(uint64_t lo, uint64_t hi, uint64_t n) {
     return res * step;
 }
 
+static Async<void> part(std::vector<double>& parts, uint64_t t, uint64_t slice, uint64_t tasks) {
+    parts[t] = compute_pi(t * slice, (t + 1) * slice, tasks * slice);
+    co_return;
+}
+
 int main(int argc, char** argv) {
     const uint64_t tasks = 10000, slice = 10000;
     unsigned workers = argc > 1 ? unsigned(std::atoi(argv[1])) : 4;
@@ -18,7 +23,7 @@ int main(int argc, char** argv) {
     std::vector<double> parts(tasks);
     auto f = [&]() {
         for (uint64_t t = 0; t < tasks; t++)
-            pool.submit([&parts, t] { parts[t] = compute_pi(t * slice, (t + 1) * slice, tasks * slice); });
+            pool.submit(part(parts, t, slice, tasks));
         pool.join();
     };
     run_bench(f);

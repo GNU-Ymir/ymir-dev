@@ -60,7 +60,10 @@ uv run bench 'pool_*'                 # the benchmarks matching a shell-style pa
 itself (2 warmup iterations, then 21 timed ones, one ms value per line), and may print
 `metric <name> <value>` lines measured outside the timed iterations, which the report shows under
 the timings (the median over the rounds). A benchmark listed in `VARIANTS` (`ymir_dev/bench.py`)
-runs once per set of arguments, as one row each (`pool_compute/1w`, `/2w`, `/4w`: its workers). The preview gyc (`ymirc`), the other gyc and `g++` build them at `-O3` (`-O` to
+runs once per set of arguments, as one row each (`pool_compute/1w`, `/2w`, `/4w`: its workers). The
+C++ counterparts of the `pool_*` benchmarks run C++20 coroutines on the executor of `cpp/_pool.hpp`, of the
+design of the Ymir `TaskPool` (one ready queue under a mutex, a semaphore, a task state per coroutine), so the
+gap measures the Ymir code generation and runtime, not the algorithm. The preview gyc (`ymirc`), the other gyc and `g++` build them at `-O3` (`-O` to
 change it). Each benchmark then runs `--rounds` times per language (3 by default). The rounds are
 interleaved and flip the ymirc/gyc order each time, so a drift in the machine hits both compilers
 alike.
