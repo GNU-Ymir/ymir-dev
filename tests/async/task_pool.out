@@ -1,0 +1,5 @@
+slept 50ms
+slept 100ms
+slept 150ms
+one worker, three delays in under 300ms: true
+offloaded 42

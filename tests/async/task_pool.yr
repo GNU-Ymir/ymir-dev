@@ -1,0 +1,32 @@
+use std::io;
+use std::time;
+use std::concurrency;
+
+async sleeper (ms: u64) {
+    await delay (millis (ms));
+    println ("slept ", ms, "ms");
+}
+
+fn slow (x: i32)-> i32 {
+    sleep (millis (20u64));
+    x * 2
+}
+
+async offloaded (x: i32) {
+    let f = spawn slow (x);
+    println ("offloaded ", await f);
+}
+
+fn main () {
+    let dmut pool = copy TaskPool (nbThreads-> 1u32);
+    let start = Instant::now ();
+    pool:.submit (sleeper (150u64));
+    pool:.submit (sleeper (50u64));
+    pool:.submit (sleeper (100u64));
+    pool:.join ();
+    println ("one worker, three delays in under 300ms: ", Instant::now () - start < millis (300u64));
+
+    pool:.submit (offloaded (21));
+    pool:.join ();
+    pool:.dispose ();
+}
